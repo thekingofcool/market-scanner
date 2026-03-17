@@ -214,7 +214,8 @@ let rawData = null;
 let pinnedTickers = new Set();
 
 function formatUpdateDate(dateStr) {
-  return `UPDATED: 2026-03-17T19:38:00Z`;
+  const d = new Date(dateStr);
+  return `UPDATED: ${d.toISOString().substring(0, 19)}Z`;
 }
 
 function renderCell(col, s) {
