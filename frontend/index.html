@@ -29,47 +29,73 @@ body {
   font-family: var(--font);
   font-size: 10px;
   line-height: 1.6;
-  min-height: 100vh;
 }
 
-/* SCANLINE */
-body::before {
-  content: ''; position: fixed; inset: 0;
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
-  pointer-events: none; z-index: 1000;
+.container { max-width: 1600px; margin: 0 auto; padding: 60px 24px; }
+
+/* ─── TITLE ─── */
+.main-title {
+  font-size: 20px;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+  margin-bottom: 48px;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 20px;
 }
 
-.container { max-width: 1600px; margin: 0 auto; padding: 0 24px; }
-
-/* ─── HEADER ─── */
-header {
-  border-bottom: 1px solid var(--border);
-  padding: 32px 0 24px;
-  background: var(--bg);
+/* ─── TWO-COLUMN LAYOUT ─── */
+.top-layout {
+  display: flex;
+  gap: 40px;
+  margin-bottom: 32px;
 }
 
-.header-inner { display: flex; align-items: baseline; justify-content: space-between; }
-.logo { font-size: 14px; letter-spacing: 0.15em; color: var(--accent); }
-.logo span { color: var(--text-dim); font-size: 8px; margin-left: 10px; }
-.last-updated { color: var(--text-dim); font-size: 7px; }
-
-/* ─── MACRO SECTION ─── */
-#macro-section { padding: 32px 0; border-bottom: 1px solid var(--border); }
-.section-label { font-size: 7px; color: var(--text-dim); letter-spacing: 0.2em; margin-bottom: 20px; text-transform: uppercase; }
-.macro-grid { 
-  display: grid; 
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); 
-  gap: 1px; background: var(--border); border: 1px solid var(--border); 
+.section-group {
+  display: flex;
+  flex-direction: column;
 }
-.macro-card { background: var(--bg); padding: 18px 14px; display: flex; flex-direction: column; gap: 8px; }
+
+.equities-label-side {
+  flex: 0 0 280px;
+}
+
+.macro-side {
+  flex: 1;
+}
+
+.section-label {
+  font-size: 8px;
+  color: var(--text-dim);
+  letter-spacing: 0.2em;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+}
+
+.update-ts {
+  font-size: 7px;
+  color: #444;
+  margin-top: 8px;
+  text-transform: uppercase;
+}
+
+/* ─── MACRO GRID ─── */
+.macro-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+
+.macro-card { background: var(--bg); padding: 16px 14px; display: flex; flex-direction: column; gap: 8px; }
 .macro-label { font-size: 6px; color: var(--text-dim); }
 .macro-value { font-size: 13px; color: var(--accent); }
 .macro-change { font-size: 7px; }
 .macro-change.pos { color: var(--c-good); }
 .macro-change.neg { color: var(--c-bad); }
 
-/* ─── TABLE SECTION ─── */
-#table-section { padding: 32px 0 60px; }
+/* ─── TABLE ─── */
+#table-section { padding: 20px 0 60px; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 8px; }
 
@@ -84,8 +110,8 @@ tbody tr:hover { background: var(--surface); }
 td { padding: 10px; text-align: right; white-space: nowrap; }
 td:first-child, td:nth-child(2) { text-align: left; }
 
-.td-ticker { font-size: 9px; color: var(--accent); }
-.td-name { font-size: 7px; color: var(--text-mid); }
+.td-ticker { color: var(--accent); font-size: 9px; }
+.td-name { color: var(--text-mid); font-size: 7px; }
 
 /* ─── HEATMAP ─── */
 .hm { display: inline-block; padding: 4px 6px; font-size: 7px; min-width: 52px; text-align: right; border-radius: 2px; }
@@ -97,102 +123,89 @@ td:first-child, td:nth-child(2) { text-align: left; }
 .hm-5 { background: rgba(46,204,113,0.15); color: #2ecc71; }
 .hm-6 { background: rgba(0,255,136,0.12); color: #00ff88; }
 
-.sector-header-row td { padding: 24px 10px 8px; font-size: 7px; color: var(--text-dim); letter-spacing: 0.15em; border-bottom: 1px solid var(--border); }
+.sector-row td { padding: 30px 10px 10px; color: var(--text-dim); font-size: 7px; letter-spacing: 0.15em; border-bottom: 1px solid var(--border); }
 #loading { padding: 100px; text-align: center; color: var(--text-dim); }
-.td-null { color: var(--text-dim); }
 </style>
 </head>
 <body>
 
-<header>
-  <div class="container">
-    <div class="header-inner">
-      <div class="logo">MARKET SCANNER <span>// US EQUITIES</span></div>
-      <div class="last-updated" id="last-updated">SYNCING...</div>
-    </div>
-  </div>
-</header>
-
 <div class="container">
-  <div id="loading">LOADING DATA...</div>
+  <h1 class="main-title">MARKET SCANNER</h1>
 
-  <div id="content" style="display:none">
-    <section id="macro-section">
+  <div class="top-layout">
+    <div class="section-group equities-label-side">
+      <div class="section-label">US EQUITIES</div>
+      <div class="update-ts" id="last-updated">SYNCING...</div>
+    </div>
+    
+    <div class="section-group macro-side">
       <div class="section-label">MACRO INDICATORS</div>
       <div class="macro-grid" id="macro-grid"></div>
-    </section>
-
-    <section id="table-section">
-      <div class="section-label">MARKET DATA</div>
-      <div class="table-wrap">
-        <table id="main-table">
-          <thead id="table-head"></thead>
-          <tbody id="table-body"></tbody>
-        </table>
-      </div>
-    </section>
+    </div>
   </div>
+
+  <div id="loading">INITIALIZING...</div>
+
+  <section id="table-section" style="display:none">
+    <div class="table-wrap">
+      <table>
+        <thead id="table-head"></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </section>
 </div>
 
 <script>
-let allStocks = [];
-const COLS = [
-  { key: 'ticker',           label: 'TICKER',     type: 'ticker' },
-  { key: 'name',             label: 'NAME',       type: 'name' },
-  { key: 'market_cap_b',     label: 'MCAP $B',    type: 'number' },
-  { key: 'price',            label: 'PRICE',      type: 'number' },
-  { key: 'change_pct',       label: 'CHG%',       type: 'change' },
-  { key: 'pe',               label: 'P/E',        type: 'hm', hm: 'pe' },
-  { key: 'ev_ebit',          label: 'EV/EBIT',    type: 'hm', hm: 'ev_ebit' },
-  { key: 'ev_ebitda',        label: 'EV/EBITDA',  type: 'hm', hm: 'ev_ebitda' },
-  { key: 'fcf_yield',        label: 'FCF YLD',    type: 'hm', hm: 'fcf_yield' },
-  { key: 'ps_ratio',         label: 'P/S',        type: 'hm', hm: 'ps' },
-  { key: 'gross_margin',     label: 'GROSS%',     type: 'hm', hm: 'margin_pct' },
-  { key: 'operating_margin', label: 'OP MGN%',    type: 'hm', hm: 'op_margin' },
-  { key: 'net_margin',       label: 'NET MGN%',   type: 'hm', hm: 'op_margin' },
-  { key: 'fcf_margin',       label: 'FCF MGN%',   type: 'hm', hm: 'op_margin' },
-  { key: 'roic',             label: 'ROIC%',      type: 'hm', hm: 'roic' },
-  { key: 'roe',              label: 'ROE%',       type: 'hm', hm: 'roe' },
-  { key: 'revenue_cagr',     label: 'REV CAGR',   type: 'hm', hm: 'cagr' },
-  { key: 'eps_cagr',         label: 'EPS CAGR',   type: 'hm', hm: 'cagr' },
-  { key: 'debt_ebitda',      label: 'DEBT/EBITDA',type: 'hm', hm: 'debt_ebitda' },
-  { key: 'interest_coverage',label: 'INT COV',    type: 'hm', hm: 'int_cov' },
-  { key: 'revenue_ttm',      label: 'REV $M',     type: 'number' },
-  { key: 'fcf_ttm',          label: 'FCF $M',     type: 'number' },
-  { key: 'eps',              label: 'EPS',        type: 'number' }
-];
-
-const HM = {
-  pe: v => v < 0 ? 0 : v < 15 ? 6 : v < 25 ? 4 : v < 40 ? 2 : 1,
-  ev_ebit: v => v < 0 ? 0 : v < 12 ? 6 : v < 20 ? 4 : v < 35 ? 2 : 1,
-  ev_ebitda: v => v < 0 ? 0 : v < 10 ? 6 : v < 15 ? 4 : 2,
-  fcf_yield: v => v > 8 ? 6 : v > 5 ? 5 : v > 3 ? 4 : v > 0 ? 2 : 0,
-  ps: v => v < 1 ? 6 : v < 3 ? 4 : v < 8 ? 2 : 1,
-  margin_pct: v => v > 50 ? 6 : v > 30 ? 4 : v > 15 ? 2 : 1,
-  op_margin: v => v > 25 ? 6 : v > 15 ? 4 : v > 5 ? 2 : 0,
-  roic: v => v > 20 ? 6 : v > 12 ? 4 : v > 5 ? 2 : 0,
-  roe: v => v > 25 ? 6 : v > 15 ? 4 : 2,
-  cagr: v => v > 20 ? 6 : v > 10 ? 4 : v > 0 ? 2 : 0,
-  debt_ebitda: v => v < 1 ? 6 : v < 3 ? 4 : v < 5 ? 2 : 0,
-  int_cov: v => v > 10 ? 6 : v > 4 ? 4 : v > 1.5 ? 2 : 0
+const MACRO_META = {
+  fed_funds_rate: { suffix: '%' },
+  cpi_yoy: { suffix: '%' },
+  unemployment: { suffix: '%' },
+  gdp_growth: { suffix: '%' },
+  vix: { suffix: '' },
+  m2_money_supply: { suffix: 'B' },
+  '10y_treasury': { suffix: '%' }
 };
 
-function fmt(v, dec=2) {
-  if (v === null || v === undefined) return '<span class="td-null">—</span>';
-  return v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+const COLS = [
+  { key: 'ticker', label: 'TICKER', type: 'ticker' },
+  { key: 'name', label: 'NAME', type: 'name' },
+  { key: 'market_cap_b', label: 'MCAP $B', type: 'num' },
+  { key: 'price', label: 'PRICE', type: 'num' },
+  { key: 'change_pct', label: 'CHG%', type: 'change' },
+  { key: 'pe', label: 'P/E', type: 'hm', hm: 'pe' },
+  { key: 'ev_ebit', label: 'EV/EBIT', type: 'hm', hm: 'ev' },
+  { key: 'fcf_yield', label: 'FCF YLD', type: 'hm', hm: 'yield' },
+  { key: 'roic', label: 'ROIC%', type: 'hm', hm: 'yield' },
+  { key: 'revenue_cagr', label: 'REV CAGR', type: 'hm', hm: 'yield' },
+  { key: 'debt_ebitda', label: 'DEBT/EBITDA', type: 'hm', hm: 'debt' },
+  { key: 'revenue_ttm', label: 'REV $M', type: 'num' }
+];
+
+const HM_RULES = {
+  pe: v => v < 15 ? 6 : v < 25 ? 4 : 2,
+  ev: v => v < 12 ? 6 : v < 18 ? 4 : 2,
+  yield: v => v > 8 ? 6 : v > 4 ? 4 : 2,
+  debt: v => v < 1 ? 6 : v < 3 ? 4 : 2
+};
+
+function formatUpdateDate(dateStr) {
+  const d = new Date(dateStr);
+  const fmt = new Intl.DateTimeFormat('en-US', { 
+    month: 'short', day: 'numeric', year: 'numeric', 
+    hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' 
+  }).format(d);
+  return `UPDATED: ${fmt.replace(',', '')} UTC`;
 }
 
-function renderCell(col, stock) {
-  const v = stock[col.key];
-  if (v === null || v === undefined) return '<span class="td-null">—</span>';
-  switch (col.type) {
-    case 'ticker': return `<span class="td-ticker">${v}</span>`;
-    case 'name': return `<span class="td-name">${v.slice(0,20)}</span>`;
-    case 'change': return `<span class="hm hm-${v > 2 ? 6 : v > 0 ? 4 : 2}">${v > 0 ? '+' : ''}${v}%</span>`;
-    case 'hm': return `<span class="hm hm-${HM[col.hm](v)}">${typeof v === 'number' ? v.toFixed(1) : v}</span>`;
-    case 'number': return fmt(v, v > 100 ? 0 : 2);
-    default: return v;
-  }
+function renderCell(col, s) {
+  const v = s[col.key];
+  if (v == null) return '<span style="color:#333">—</span>';
+  if (col.type === 'ticker') return `<span class="td-ticker">${v}</span>`;
+  if (col.type === 'name') return `<span class="td-name">${v.slice(0,18)}</span>`;
+  if (col.type === 'change') return `<span class="hm hm-${v > 0 ? 5 : 1}">${v > 0 ? '+' : ''}${v}%</span>`;
+  if (col.type === 'hm') return `<span class="hm hm-${HM_RULES[col.hm](v)}">${v.toFixed(1)}</span>`;
+  return v.toLocaleString();
 }
 
 async function init() {
@@ -200,15 +213,21 @@ async function init() {
     const res = await fetch('./data/market.json');
     const data = await res.json();
     document.getElementById('loading').style.display = 'none';
-    document.getElementById('content').style.display = 'block';
+    document.getElementById('table-section').style.display = 'block';
 
     if (data.meta?.generated_at) {
-      document.getElementById('last-updated').textContent = `AS OF: ${new Date(data.meta.generated_at).toLocaleDateString()}`;
+      document.getElementById('last-updated').textContent = formatUpdateDate(data.meta.generated_at);
     }
 
     const mGrid = document.getElementById('macro-grid');
     Object.entries(data.macro || {}).forEach(([k, v]) => {
-      mGrid.innerHTML += `<div class="macro-card"><div class="macro-label">${k.replace(/_/g,' ').toUpperCase()}</div><div class="macro-value">${v.value}%</div><div class="macro-change ${v.change > 0 ? 'neg' : 'pos'}">${v.change > 0 ? '+' : ''}${v.change}</div></div>`;
+      const meta = MACRO_META[k] || { suffix: '' };
+      mGrid.innerHTML += `
+        <div class="macro-card">
+          <div class="macro-label">${k.replace(/_/g,' ').toUpperCase()}</div>
+          <div class="macro-value">${v.value}${meta.suffix}</div>
+          <div class="macro-change ${v.change > 0 ? 'neg' : 'pos'}">${v.change > 0 ? '+' : ''}${v.change}${meta.suffix}</div>
+        </div>`;
     });
 
     const thead = document.getElementById('table-head');
@@ -218,14 +237,15 @@ async function init() {
     const tbody = document.getElementById('table-body');
     let rows = '';
     Object.keys(sectors).forEach(sec => {
-      rows += `<tr class="sector-header-row"><td colspan="${COLS.length}">${sec.toUpperCase()}</td></tr>`;
+      rows += `<tr class="sector-row"><td colspan="${COLS.length}">${sec.toUpperCase()}</td></tr>`;
       sectors[sec].sort((a,b) => (b.market_cap_b||0) - (a.market_cap_b||0)).forEach(s => {
         rows += `<tr>${COLS.map(c => `<td>${renderCell(c, s)}</td>`).join('')}</tr>`;
       });
     });
     tbody.innerHTML = rows;
-  } catch (err) {
-    document.getElementById('loading').textContent = 'ERROR LOADING DATA';
+
+  } catch (e) {
+    document.getElementById('loading').textContent = 'CONNECTION ERROR';
   }
 }
 init();
