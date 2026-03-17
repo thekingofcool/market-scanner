@@ -15,91 +15,108 @@
   --surface: #111111;
   --border: #222222;
   --text: #e0e0e0;
-  --text-dim: #555;
-  --text-mid: #888;
+  --text-dim: #888; /* 调亮了灰色文字以保护视力 */
+  --text-mid: #aaa;
   --accent: #fff;
   --font: 'Press Start 2P', monospace;
   --c-good: #2ecc71;
-  --c-bad: #c0392b;
+  --c-bad: #e74c3c;
 }
 
 body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
-  font-size: 10px;
+  font-size: 12px; /* 整体字号调大 */
   line-height: 1.6;
 }
 
 .container { max-width: 1800px; margin: 0 auto; padding: 40px 24px; }
 
-/* ─── LINE 1: HEADER ─── */
+/* ─── HEADER ─── */
 .header-line {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--border);
   padding-bottom: 20px;
   margin-bottom: 30px;
 }
-.main-title { font-size: 18px; letter-spacing: 0.15em; color: var(--accent); }
-.update-ts { font-size: 7px; color: var(--text-dim); }
+.main-title { font-size: 22px; letter-spacing: 0.15em; color: var(--accent); }
+.update-ts { font-size: 9px; color: var(--text-dim); }
+
+/* ─── WATCHLIST INPUT ─── */
+.watchlist-bar {
+  margin-bottom: 30px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.watchlist-bar input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-family: var(--font);
+  font-size: 10px;
+  padding: 10px 15px;
+  width: 300px;
+  outline: none;
+}
+.watchlist-bar input:focus { border-color: var(--text-dim); }
+.watchlist-hint { font-size: 8px; color: var(--text-dim); }
 
 /* ─── SECTION COMMON ─── */
 .section-label {
-  font-size: 8px;
+  font-size: 10px;
   color: var(--text-dim);
   letter-spacing: 0.2em;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   text-transform: uppercase;
 }
 
-/* ─── LINE 2: MACRO ─── */
-#macro-wrapper { margin-bottom: 40px; }
+/* ─── MACRO GRID ─── */
+#macro-wrapper { margin-bottom: 50px; }
 .macro-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1px;
   background: var(--border);
   border: 1px solid var(--border);
 }
-.macro-card { background: var(--bg); padding: 16px 14px; display: flex; flex-direction: column; gap: 8px; }
-.macro-label { font-size: 6px; color: var(--text-dim); }
-.macro-value { font-size: 13px; color: var(--accent); }
-.macro-change { font-size: 7px; }
+.macro-card { background: var(--bg); padding: 20px 18px; display: flex; flex-direction: column; gap: 10px; }
+.macro-label { font-size: 7px; color: var(--text-dim); }
+.macro-value { font-size: 16px; color: var(--accent); }
+.macro-change { font-size: 9px; }
 .macro-change.pos { color: var(--c-good); }
 .macro-change.neg { color: var(--c-bad); }
 
-/* ─── LINE 3: EQUITIES ─── */
-#table-section { padding-top: 10px; }
+/* ─── TABLE ─── */
 .table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 9px; }
 
 thead th {
-  padding: 12px 10px; text-align: right; color: var(--text-dim); font-size: 6px;
-  border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 10;
+  padding: 15px 10px; text-align: right; color: var(--text-dim); font-size: 8px;
+  border-bottom: 2px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 10;
 }
 thead th:first-child, thead th:nth-child(2) { text-align: left; }
 
-tbody tr { border-bottom: 1px solid #161616; }
+tbody tr { border-bottom: 1px solid #1a1a1a; }
 tbody tr:hover { background: var(--surface); }
-td { padding: 10px; text-align: right; white-space: nowrap; }
+tbody tr.pinned { background: rgba(255, 255, 255, 0.05); border-left: 4px solid var(--accent); }
+td { padding: 14px 10px; text-align: right; white-space: nowrap; }
 td:first-child, td:nth-child(2) { text-align: left; }
 
-.td-ticker { color: var(--accent); font-size: 9px; }
-.td-name { color: var(--text-mid); font-size: 7px; }
+.td-ticker { color: var(--accent); font-size: 11px; font-weight: bold; }
+.td-name { color: var(--text-mid); font-size: 9px; }
 
 /* ─── HEATMAP ─── */
-.hm { display: inline-block; padding: 4px 6px; font-size: 7px; min-width: 52px; text-align: right; border-radius: 2px; }
-.hm-0 { background: rgba(139,0,0,0.25); color: #ff6b6b; }
-.hm-1 { background: rgba(192,57,43,0.2); color: #e74c3c; }
-.hm-2 { background: rgba(230,126,34,0.15); color: #e67e22; }
-.hm-3 { background: rgba(100,100,100,0.1); color: var(--text-mid); }
-.hm-4 { background: rgba(39,174,96,0.12); color: #27ae60; }
-.hm-5 { background: rgba(46,204,113,0.15); color: #2ecc71; }
-.hm-6 { background: rgba(0,255,136,0.12); color: #00ff88; }
+.hm { display: inline-block; padding: 5px 8px; font-size: 9px; min-width: 60px; text-align: right; border-radius: 2px; }
+.hm-0 { background: rgba(139,0,0,0.3); color: #ff6b6b; }
+.hm-1 { background: rgba(192,57,43,0.3); color: #e74c3c; }
+.hm-5 { background: rgba(46,204,113,0.2); color: #2ecc71; }
+.hm-6 { background: rgba(0,255,136,0.2); color: #00ff88; }
 
-.sector-row td { padding: 30px 10px 10px; color: var(--text-dim); font-size: 7px; letter-spacing: 0.15em; border-bottom: 1px solid var(--border); }
+.sector-row td { padding: 40px 10px 10px; color: var(--accent); font-size: 10px; letter-spacing: 0.2em; border-bottom: 1px solid var(--border); }
 #loading { padding: 100px; text-align: center; color: var(--text-dim); }
 </style>
 </head>
@@ -121,8 +138,14 @@ td:first-child, td:nth-child(2) { text-align: left; }
 
     <section id="table-section">
       <div class="section-label">US EQUITIES</div>
+      
+      <div class="watchlist-bar">
+        <input type="text" id="pin-input" placeholder="ENTER TICKER TO PIN (E.G. NVDA)">
+        <span class="watchlist-hint">HIT ENTER TO PIN TO TOP</span>
+      </div>
+
       <div class="table-wrap">
-        <table id="main-table">
+        <table>
           <thead id="table-head"></thead>
           <tbody id="table-body"></tbody>
         </table>
@@ -132,7 +155,29 @@ td:first-child, td:nth-child(2) { text-align: left; }
 </div>
 
 <script>
-// 100% 找回所有 23 项原始指标
+// 1. 重新排序后的宏观指标 (按重要性/关联性排列)
+const MACRO_ORDER = [
+  'fed_funds_rate',   // 1. 资金成本 (核心)
+  '10y_treasury',     // 2. 无风险利率 (定价锚)
+  '2y_treasury',      // 3. 短端预期
+  'cpi_yoy',          // 4. 通胀情况
+  'unemployment',     // 5. 经济就业
+  'gdp_growth',       // 6. 经济增长
+  'vix',              // 7. 市场情绪/波动率
+  'm2_money_supply'   // 8. 货币流动性
+];
+
+const MACRO_META = {
+  fed_funds_rate: { label: 'FED FUNDS RATE', suffix: '%' },
+  '10y_treasury': { label: 'US 10Y YIELD', suffix: '%' },
+  '2y_treasury':  { label: 'US 2Y YIELD', suffix: '%' },
+  cpi_yoy:        { label: 'CPI YOY', suffix: '%' },
+  unemployment:   { label: 'UNEMPLOYMENT', suffix: '%' },
+  gdp_growth:     { label: 'GDP GROWTH', suffix: '%' },
+  vix:            { label: 'VIX INDEX', suffix: '' },
+  m2_money_supply:{ label: 'M2 SUPPLY', suffix: 'B' }
+};
+
 const COLS = [
   { key: 'ticker',           label: 'TICKER',     type: 'ticker' },
   { key: 'name',             label: 'NAME',       type: 'name' },
@@ -140,47 +185,23 @@ const COLS = [
   { key: 'price',            label: 'PRICE',      type: 'num' },
   { key: 'change_pct',       label: 'CHG%',       type: 'change' },
   { key: 'pe',               label: 'P/E',        type: 'hm', hm: 'pe' },
-  { key: 'ev_ebit',          label: 'EV/EBIT',    type: 'hm', hm: 'ev_ebit' },
-  { key: 'ev_ebitda',        label: 'EV/EBITDA',  type: 'hm', hm: 'ev_ebitda' },
+  { key: 'ev_ebit',          label: 'EV/EBIT',    type: 'hm', hm: 'ev' },
   { key: 'fcf_yield',        label: 'FCF YLD',    type: 'hm', hm: 'yield' },
-  { key: 'ps_ratio',         label: 'P/S',        type: 'hm', hm: 'ps' },
-  { key: 'gross_margin',     label: 'GROSS%',     type: 'hm', hm: 'margin' },
-  { key: 'operating_margin', label: 'OP MGN%',    type: 'hm', hm: 'margin' },
-  { key: 'net_margin',       label: 'NET MGN%',   type: 'hm', hm: 'margin' },
-  { key: 'fcf_margin',       label: 'FCF MGN%',   type: 'hm', hm: 'margin' },
-  { key: 'roic',             label: 'ROIC%',      type: 'hm', hm: 'margin' },
-  { key: 'roe',              label: 'ROE%',       type: 'hm', hm: 'margin' },
-  { key: 'revenue_cagr',     label: 'REV CAGR',   type: 'hm', hm: 'cagr' },
-  { key: 'eps_cagr',         label: 'EPS CAGR',   type: 'hm', hm: 'cagr' },
+  { key: 'roic',             label: 'ROIC%',      type: 'hm', hm: 'yield' },
+  { key: 'revenue_cagr',     label: 'REV CAGR',   type: 'hm', hm: 'yield' },
   { key: 'debt_ebitda',      label: 'DEBT/EBITDA',type: 'hm', hm: 'debt' },
-  { key: 'interest_coverage',label: 'INT COV',    type: 'hm', hm: 'int' },
-  { key: 'revenue_ttm',      label: 'REV $M',     type: 'num' },
-  { key: 'fcf_ttm',          label: 'FCF $M',     type: 'num' },
-  { key: 'eps',              label: 'EPS',        type: 'num' }
+  { key: 'revenue_ttm',      label: 'REV $M',     type: 'num' }
 ];
-
-const MACRO_META = {
-  fed_funds_rate: { suffix: '%' },
-  cpi_yoy: { suffix: '%' },
-  unemployment: { suffix: '%' },
-  gdp_growth: { suffix: '%' },
-  vix: { suffix: '' },
-  m2_money_supply: { suffix: 'B' },
-  '10y_treasury': { suffix: '%' },
-  '2y_treasury': { suffix: '%' }
-};
 
 const HM_RULES = {
   pe: v => v < 15 ? 6 : v < 25 ? 4 : 2,
-  ev_ebit: v => v < 12 ? 6 : v < 18 ? 4 : 2,
-  ev_ebitda: v => v < 10 ? 6 : v < 15 ? 4 : 2,
+  ev: v => v < 12 ? 6 : v < 18 ? 4 : 2,
   yield: v => v > 7 ? 6 : v > 4 ? 4 : 2,
-  ps: v => v < 1.5 ? 6 : v < 4 ? 4 : 2,
-  margin: v => v > 35 ? 6 : v > 15 ? 4 : 2,
-  cagr: v => v > 15 ? 6 : v > 8 ? 4 : 2,
-  debt: v => v < 1.5 ? 6 : v < 3.5 ? 4 : 2,
-  int: v => v > 8 ? 6 : v > 3 ? 4 : 2
+  debt: v => v < 1.5 ? 6 : v < 3.5 ? 4 : 2
 };
+
+let rawData = null;
+let pinnedTickers = new Set();
 
 function formatUpdateDate(dateStr) {
   const d = new Date(dateStr);
@@ -204,50 +225,80 @@ function renderCell(col, s) {
   return v.toLocaleString();
 }
 
+function renderTable() {
+  const tbody = document.getElementById('table-body');
+  const sectors = rawData.sectors || {};
+  let rows = '';
+
+  // 1. 渲染被 Pin 的股票
+  let allPinned = [];
+  Object.values(sectors).flat().forEach(s => {
+    if (pinnedTickers.has(s.ticker.toUpperCase())) allPinned.push(s);
+  });
+  
+  if (allPinned.length > 0) {
+    rows += `<tr class="sector-row"><td colspan="${COLS.length}">WATCHLIST</td></tr>`;
+    allPinned.forEach(s => {
+      rows += `<tr class="pinned">${COLS.map(c => `<td>${renderCell(c, s)}</td>`).join('')}</tr>`;
+    });
+  }
+
+  // 2. 正常分板块渲染
+  const SECTOR_ORDER = ["Technology","Healthcare","Financials","Consumer Discretionary","Communication Services","Industrials","Consumer Staples","Energy","Utilities","Real Estate","Materials"];
+  SECTOR_ORDER.forEach(sec => {
+    if (sectors[sec]) {
+      rows += `<tr class="sector-row"><td colspan="${COLS.length}">${sec.toUpperCase()}</td></tr>`;
+      sectors[sec].sort((a,b) => (b.market_cap_b||0) - (a.market_cap_b||0)).forEach(s => {
+        rows += `<tr>${COLS.map(c => `<td>${renderCell(c, s)}</td>`).join('')}</tr>`;
+      });
+    }
+  });
+  tbody.innerHTML = rows;
+}
+
 async function init() {
   try {
     const res = await fetch('./data/market.json');
-    const data = await res.json();
+    rawData = await res.json();
     document.getElementById('loading').style.display = 'none';
     document.getElementById('main-content').style.display = 'block';
 
-    if (data.meta?.generated_at) {
-      document.getElementById('last-updated').textContent = formatUpdateDate(data.meta.generated_at);
+    if (rawData.meta?.generated_at) {
+      document.getElementById('last-updated').textContent = formatUpdateDate(rawData.meta.generated_at);
     }
 
-    // LINE 2: MACRO
+    // 渲染宏观指标 (按固定顺序)
     const mGrid = document.getElementById('macro-grid');
-    Object.entries(data.macro || {}).forEach(([k, v]) => {
-      const meta = MACRO_META[k] || { suffix: '' };
-      mGrid.innerHTML += `
-        <div class="macro-card">
-          <div class="macro-label">${k.replace(/_/g,' ').toUpperCase()}</div>
-          <div class="macro-value">${v.value}${meta.suffix}</div>
-          <div class="macro-change ${v.change > 0 ? 'neg' : 'pos'}">${v.change > 0 ? '+' : ''}${v.change}${meta.suffix}</div>
-        </div>`;
-    });
-
-    // LINE 3: EQUITIES
-    const thead = document.getElementById('table-head');
-    thead.innerHTML = `<tr>${COLS.map(c => `<th>${c.label}</th>`).join('')}</tr>`;
-
-    const sectors = data.sectors || {};
-    const tbody = document.getElementById('table-body');
-    let rows = '';
-    const SECTOR_ORDER = ["Technology","Healthcare","Financials","Consumer Discretionary","Communication Services","Industrials","Consumer Staples","Energy","Utilities","Real Estate","Materials","Other"];
-    
-    SECTOR_ORDER.forEach(sec => {
-      if (sectors[sec]) {
-        rows += `<tr class="sector-row"><td colspan="${COLS.length}">${sec.toUpperCase()}</td></tr>`;
-        sectors[sec].sort((a,b) => (b.market_cap_b||0) - (a.market_cap_b||0)).forEach(s => {
-          rows += `<tr>${COLS.map(c => `<td>${renderCell(c, s)}</td>`).join('')}</tr>`;
-        });
+    MACRO_ORDER.forEach(key => {
+      const v = rawData.macro[key];
+      if (v) {
+        const meta = MACRO_META[key];
+        mGrid.innerHTML += `
+          <div class="macro-card">
+            <div class="macro-label">${meta.label}</div>
+            <div class="macro-value">${v.value}${meta.suffix}</div>
+            <div class="macro-change ${v.change > 0 ? 'neg' : 'pos'}">${v.change > 0 ? '+' : ''}${v.change}${meta.suffix}</div>
+          </div>`;
       }
     });
-    tbody.innerHTML = rows;
+
+    document.getElementById('table-head').innerHTML = `<tr>${COLS.map(c => `<th>${c.label}</th>`).join('')}</tr>`;
+    renderTable();
+
+    // PIN 输入事件
+    document.getElementById('pin-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const val = e.target.value.trim().toUpperCase();
+        if (val) {
+          pinnedTickers.add(val);
+          e.target.value = '';
+          renderTable();
+        }
+      }
+    });
 
   } catch (e) {
-    document.getElementById('loading').textContent = 'FETCH ERROR';
+    document.getElementById('loading').textContent = 'CONNECTION ERROR';
   }
 }
 init();
