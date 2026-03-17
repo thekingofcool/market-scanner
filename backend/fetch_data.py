@@ -44,7 +44,7 @@ load_dotenv()
 MASSIVE_API_KEY = os.getenv("MASSIVE_API_KEY") or os.getenv("POLYGON_API_KEY", "")
 FRED_API_KEY    = os.getenv("FRED_API_KEY", "")
 MAX_TICKERS     = int(os.getenv("MAX_TICKERS", "5000"))
-MIN_MARKET_CAP  = 50_000_000   # skip < $50M market cap
+MIN_MARKET_CAP  = 500_000_000   # skip < $500M market cap
 OUTPUT_PATH     = os.path.join(os.path.dirname(__file__), "../frontend/data/market.json")
 
 # Rate limiting settings (可在 .env 中覆盖)
