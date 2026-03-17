@@ -15,7 +15,7 @@
   --surface: #111111;
   --border: #222222;
   --text: #e0e0e0;
-  --text-dim: #888; /* 调亮灰色，保护视力 */
+  --text-dim: #888; 
   --text-mid: #aaa;
   --accent: #fff;
   --font: 'Press Start 2P', monospace;
@@ -27,7 +27,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
-  font-size: 12px; /* 调大基础字号 */
+  font-size: 12px;
   line-height: 1.6;
 }
 
@@ -42,29 +42,47 @@ body {
   padding-bottom: 24px;
   margin-bottom: 40px;
 }
-.main-title { font-size: 24px; letter-spacing: 0.15em; color: var(--accent); }
-.update-ts { font-size: 10px; color: var(--text-dim); }
+.main-title { font-size: 20px; letter-spacing: 0.1em; color: var(--accent); }
+.update-ts { font-size: 9px; color: var(--text-dim); }
 
-/* ─── MACRO SECTION ─── */
+/* ─── SECTION LABELS ─── */
+.section-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.2em;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+}
+
+/* ─── MACRO GRID: RESPONSIVE ─── */
 #macro-wrapper { margin-bottom: 60px; }
-.section-label { font-size: 10px; color: var(--text-dim); letter-spacing: 0.2em; margin-bottom: 20px; text-transform: uppercase; }
-
 .macro-grid {
   display: grid;
+  /* 默认 PC 一行多个 */
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 1px;
   background: var(--border);
   border: 1px solid var(--border);
 }
-.macro-card { background: var(--bg); padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-.macro-label { font-size: 7px; color: var(--text-dim); line-height: 1.2; }
-.macro-value { font-size: 16px; color: var(--accent); }
-.macro-change { font-size: 9px; }
+
+/* 移动端优化：一行两个指标 */
+@media (max-width: 600px) {
+  .macro-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .main-title { font-size: 16px; }
+  .header-line { flex-direction: column; gap: 10px; }
+}
+
+.macro-card { background: var(--bg); padding: 18px 15px; display: flex; flex-direction: column; gap: 8px; }
+.macro-label { font-size: 7px; color: var(--text-dim); min-height: 14px; }
+.macro-value { font-size: 15px; color: var(--accent); }
+.macro-change { font-size: 8px; }
 .macro-change.pos { color: var(--c-good); }
 .macro-change.neg { color: var(--c-bad); }
 
 /* ─── EQUITIES SECTION ─── */
-.watchlist-bar { margin-bottom: 20px; display: flex; align-items: center; gap: 15px; }
+.watchlist-bar { margin-bottom: 20px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
 .watchlist-bar input {
   background: var(--surface); border: 1px solid var(--border); color: var(--accent);
   font-family: var(--font); font-size: 10px; padding: 12px 16px; width: 320px; outline: none;
@@ -120,8 +138,8 @@ td:first-child, td:nth-child(2) { text-align: left; }
     <section id="table-section">
       <div class="section-label">US EQUITIES</div>
       <div class="watchlist-bar">
-        <input type="text" id="pin-input" placeholder="ENTER TICKER TO PIN (E.G. NVDA)">
-        <span class="watchlist-hint">HIT ENTER TO ADD TO WATCHLIST</span>
+        <input type="text" id="pin-input" placeholder="TICKER TO PIN (E.G. NVDA)">
+        <span class="watchlist-hint">HIT ENTER TO PIN TO TOP</span>
       </div>
       <div class="table-wrap">
         <table>
@@ -134,11 +152,11 @@ td:first-child, td:nth-child(2) { text-align: left; }
 </div>
 
 <script>
-// 1. 宏观指标全量回归 (11项)
+// 1. 宏观指标 11项完整回归 & 按深度逻辑排序
 const MACRO_ORDER = [
-  'fed_funds_rate', '10y_treasury', '2y_treasury', '3m_treasury', // 利率曲线
-  'cpi_yoy', 'core_cpi', 'unemployment', 'gdp_growth',           // 通胀与增长
-  'vix', 'm2_money_supply', 'dxy'                                // 情绪与流动性
+  'fed_funds_rate', '10y_treasury', '2y_treasury', '3m_treasury', // 利率/流动性定价锚
+  'cpi_yoy', 'core_cpi', 'unemployment', 'gdp_growth',           // 经济核心基本面
+  'vix', 'dxy', 'm2_money_supply'                                // 风险情绪与美元地位
 ];
 
 const MACRO_META = {
@@ -151,11 +169,11 @@ const MACRO_META = {
   unemployment:   { label: 'UNEMPLOYMENT', suffix: '%' },
   gdp_growth:     { label: 'GDP GROWTH', suffix: '%' },
   vix:            { label: 'VIX INDEX', suffix: '' },
-  m2_money_supply:{ label: 'M2 SUPPLY', suffix: 'B' },
-  dxy:            { label: 'DOLLAR INDEX', suffix: '' }
+  dxy:            { label: 'DOLLAR INDEX', suffix: '' },
+  m2_money_supply:{ label: 'M2 SUPPLY', suffix: 'B' }
 };
 
-// 2. 股票指标全量回归 (23项)
+// 2. 股票指标 23项完整保留
 const COLS = [
   { key: 'ticker',           label: 'TICKER',     type: 'ticker' },
   { key: 'name',             label: 'NAME',       type: 'name' },
@@ -222,7 +240,6 @@ function renderTable() {
   const sectors = rawData.sectors || {};
   let rows = '';
 
-  // Watchlist
   let pinnedData = [];
   Object.values(sectors).flat().forEach(s => {
     if (pinnedTickers.has(s.ticker.toUpperCase())) pinnedData.push(s);
@@ -253,7 +270,6 @@ async function init() {
 
     if (rawData.meta?.generated_at) document.getElementById('last-updated').textContent = formatUpdateDate(rawData.meta.generated_at);
 
-    // 渲染宏观指标
     const mGrid = document.getElementById('macro-grid');
     MACRO_ORDER.forEach(key => {
       const v = rawData.macro[key];
