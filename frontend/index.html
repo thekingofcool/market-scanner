@@ -20,7 +20,6 @@
   --accent: #fff;
   --font: 'Press Start 2P', monospace;
 
-  /* Health colors — red to green */
   --c-vbad:    #8b0000;
   --c-bad:     #c0392b;
   --c-poor:    #e67e22;
@@ -275,58 +274,6 @@ header {
   border-bottom-color: var(--accent);
 }
 
-/* ─── CONTROLS ─── */
-#controls {
-  padding: 14px 0;
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--border);
-}
-
-.search-box {
-  font-family: var(--font);
-  font-size: 8px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 8px 12px;
-  width: 200px;
-  outline: none;
-}
-
-.search-box:focus {
-  border-color: var(--text-mid);
-}
-
-.search-box::placeholder {
-  color: var(--text-dim);
-}
-
-.filter-btn {
-  font-family: var(--font);
-  font-size: 7px;
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-  padding: 7px 10px;
-  cursor: pointer;
-  letter-spacing: 0.05em;
-  transition: all 0.15s;
-}
-
-.filter-btn:hover, .filter-btn.active {
-  color: var(--accent);
-  border-color: var(--text-mid);
-}
-
-.result-count {
-  margin-left: auto;
-  font-size: 7px;
-  color: var(--text-dim);
-}
-
 /* ─── TABLE ─── */
 #table-section {
   padding: 0 0 60px;
@@ -429,7 +376,6 @@ td:nth-child(2) { text-align: left; }
   border-radius: 2px;
 }
 
-/* Levels: 0=vbad, 1=bad, 2=poor, 3=neutral, 4=ok, 5=good, 6=great */
 .hm-0 { background: rgba(139,0,0,0.25);    color: #ff6b6b; }
 .hm-1 { background: rgba(192,57,43,0.2);   color: #e74c3c; }
 .hm-2 { background: rgba(230,126,34,0.15); color: #e67e22; }
@@ -501,7 +447,6 @@ td:nth-child(2) { text-align: left; }
   pointer-events: none;
 }
 
-/* ─── RESPONSIVE ─── */
 @media (max-width: 768px) {
   .logo { font-size: 10px; }
   .macro-grid { grid-template-columns: repeat(2, 1fr); }
@@ -510,7 +455,6 @@ td:nth-child(2) { text-align: left; }
 </head>
 <body>
 
-<!-- HEADER -->
 <header>
   <div class="container">
     <div class="header-inner">
@@ -527,38 +471,21 @@ td:nth-child(2) { text-align: left; }
 </header>
 
 <div class="container">
-
-  <!-- LOADING -->
   <div id="loading">
     <div class="loading-text">LOADING MARKET DATA...</div>
     <div class="loading-bar"></div>
   </div>
 
-  <!-- CONTENT (hidden until data loads) -->
   <div id="content" style="display:none">
-
-    <!-- MACRO SECTION -->
     <section id="macro-section">
       <div class="section-label">MACRO INDICATORS</div>
       <div class="macro-grid" id="macro-grid"></div>
     </section>
 
-    <!-- SUMMARY BAR -->
     <div id="summary-bar"></div>
 
-    <!-- SECTOR TABS -->
     <div id="sector-nav"></div>
 
-    <!-- CONTROLS -->
-    <div id="controls">
-      <input class="search-box" type="text" id="search" placeholder="SEARCH TICKER / NAME...">
-      <button class="filter-btn active" data-filter="all">ALL</button>
-      <button class="filter-btn" data-filter="largecap">LARGE CAP</button>
-      <button class="filter-btn" data-filter="megacap">MEGA CAP</button>
-      <span class="result-count" id="result-count"></span>
-    </div>
-
-    <!-- TABLE -->
     <section id="table-section">
       <div class="table-wrap">
         <table id="main-table">
@@ -568,7 +495,6 @@ td:nth-child(2) { text-align: left; }
       </div>
     </section>
 
-    <!-- LEGEND -->
     <div id="legend">
       <span class="legend-label">HEALTH:</span>
       <div class="legend-item"><div class="legend-dot hm-0"></div><span>VERY POOR</span></div>
@@ -579,26 +505,15 @@ td:nth-child(2) { text-align: left; }
       <div class="legend-item"><div class="legend-dot hm-5"></div><span>GREAT</span></div>
       <div class="legend-item"><div class="legend-dot hm-6"></div><span>EXCELLENT</span></div>
     </div>
-
   </div>
 </div>
 
 <script>
-// ═══════════════════════════════════════════════════════
-// DATA & STATE
-// ═══════════════════════════════════════════════════════
-
 let allStocks = [];
 let filteredStocks = [];
 let currentSector = 'ALL';
-let currentFilter = 'all';
 let sortCol = 'market_cap';
 let sortDir = 'desc';
-let searchQuery = '';
-
-// ═══════════════════════════════════════════════════════
-// COLUMN DEFINITIONS
-// ═══════════════════════════════════════════════════════
 
 const COLS = [
   { key: 'ticker',           label: 'TICKER',     type: 'ticker',   sortable: true,  tooltip: null },
@@ -626,15 +541,10 @@ const COLS = [
   { key: 'eps',              label: 'EPS',        type: 'number',   sortable: true,  tooltip: 'Earnings Per Share' },
 ];
 
-// ═══════════════════════════════════════════════════════
-// HEATMAP SCORING FUNCTIONS
-// ═══════════════════════════════════════════════════════
-
 const HM = {
-  // Lower is better (valuation multiples)
   pe: v => {
     if (v === null || v === undefined) return null;
-    if (v < 0)   return 0; // negative earnings
+    if (v < 0)   return 0;
     if (v < 10)  return 6;
     if (v < 15)  return 5;
     if (v < 20)  return 4;
@@ -665,7 +575,6 @@ const HM = {
     if (v < 40) return 1;
     return 0;
   },
-  // Higher is better
   fcf_yield: v => {
     if (v === null || v === undefined) return null;
     if (v < 0)   return 0;
@@ -743,10 +652,9 @@ const HM = {
     if (v >= 0)  return 1;
     return 0;
   },
-  // Lower is better (leverage)
   debt_ebitda: v => {
     if (v === null || v === undefined) return null;
-    if (v < 0)   return 3; // net cash
+    if (v < 0)   return 3;
     if (v < 0.5) return 6;
     if (v < 1)   return 5;
     if (v < 2)   return 4;
@@ -770,20 +678,12 @@ const HM = {
 
 function hmScore(hmType, value) {
   const fn = HM[hmType];
-  if (!fn) return null;
-  return fn(value);
+  return fn ? fn(value) : null;
 }
-
-// ═══════════════════════════════════════════════════════
-// RENDER HELPERS
-// ═══════════════════════════════════════════════════════
 
 function fmt(v, decimals = 2) {
   if (v === null || v === undefined || isNaN(v)) return '<span class="td-null">—</span>';
-  return Number(v).toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
+  return Number(v).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
 function fmtPct(v) {
@@ -803,38 +703,25 @@ function renderHmCell(hmType, value) {
   if (value === null || value === undefined) return '<span class="td-null">—</span>';
   const score = hmScore(hmType, value);
   if (score === null) return `<span class="td-null">${fmt(value)}</span>`;
-  const display = (typeof value === 'number' && !Number.isInteger(value))
-    ? value.toFixed(1)
-    : value;
+  const display = (typeof value === 'number' && !Number.isInteger(value)) ? value.toFixed(1) : value;
   return `<span class="hm hm-${score}">${display}</span>`;
 }
 
 function renderCell(col, stock) {
   const v = stock[col.key];
   switch (col.type) {
-    case 'ticker':
-      return `<span class="td-ticker">${v || '—'}</span>`;
-    case 'name':
-      return `<span class="td-name" title="${v || ''}">${v ? (v.length > 22 ? v.slice(0,22)+'...' : v) : '—'}</span>`;
-    case 'mcap':
-      return `<span class="td-mcap">${fmtMcap(v)}</span>`;
-    case 'price':
-      return `<span class="td-price">${v ? fmt(v) : '<span class="td-null">—</span>'}</span>`;
+    case 'ticker': return `<span class="td-ticker">${v || '—'}</span>`;
+    case 'name': return `<span class="td-name" title="${v || ''}">${v ? (v.length > 22 ? v.slice(0,22)+'...' : v) : '—'}</span>`;
+    case 'mcap': return `<span class="td-mcap">${fmtMcap(v)}</span>`;
+    case 'price': return `<span class="td-price">${v ? fmt(v) : '<span class="td-null">—</span>'}</span>`;
     case 'change':
       if (v === null || v === undefined) return '<span class="td-null">—</span>';
       return `<span class="td-change ${v > 0 ? 'pos' : v < 0 ? 'neg' : 'neu'} hm hm-${v > 2 ? 6 : v > 0 ? 4 : v > -2 ? 2 : 0}">${fmtPct(v)}</span>`;
-    case 'hm':
-      return renderHmCell(col.hm, v);
-    case 'number':
-      return v !== null && v !== undefined ? `<span>${fmt(v, v > 100 ? 0 : 2)}</span>` : '<span class="td-null">—</span>';
-    default:
-      return v ?? '<span class="td-null">—</span>';
+    case 'hm': return renderHmCell(col.hm, v);
+    case 'number': return v !== null && v !== undefined ? `<span>${fmt(v, v > 100 ? 0 : 2)}</span>` : '<span class="td-null">—</span>';
+    default: return v ?? '<span class="td-null">—</span>';
   }
 }
-
-// ═══════════════════════════════════════════════════════
-// MACRO RENDERING
-// ═══════════════════════════════════════════════════════
 
 const MACRO_LABELS = {
   fed_funds_rate:  { label: 'FED FUNDS RATE',  suffix: '%',  lowerBetter: true },
@@ -852,53 +739,31 @@ const MACRO_LABELS = {
 function renderMacro(macro) {
   const grid = document.getElementById('macro-grid');
   grid.innerHTML = '';
-
   for (const [key, meta] of Object.entries(MACRO_LABELS)) {
     const data = macro[key];
     if (!data || data.value === null) continue;
-
-    const val = data.value;
     const chg = data.change;
-    let changeClass = 'neu';
-    let changeStr = '';
-
+    let changeClass = 'neu', changeStr = '';
     if (chg !== null && chg !== undefined) {
-      const better = meta.lowerBetter === null ? null :
-        (meta.lowerBetter ? chg < 0 : chg > 0);
+      const better = meta.lowerBetter === null ? null : (meta.lowerBetter ? chg < 0 : chg > 0);
       changeClass = better === true ? 'pos' : better === false ? 'neg' : 'neu';
       changeStr = (chg > 0 ? '+' : '') + chg.toFixed(2) + meta.suffix;
     }
-
-    grid.innerHTML += `
-      <div class="macro-card">
-        <div class="macro-label">${meta.label}</div>
-        <div class="macro-value">${val}${meta.suffix}</div>
-        ${changeStr ? `<div class="macro-change ${changeClass}">${changeStr}</div>` : ''}
-      </div>`;
+    grid.innerHTML += `<div class="macro-card"><div class="macro-label">${meta.label}</div><div class="macro-value">${data.value}${meta.suffix}</div>${changeStr ? `<div class="macro-change ${changeClass}">${changeStr}</div>` : ''}</div>`;
   }
 }
-
-// ═══════════════════════════════════════════════════════
-// TABLE RENDERING
-// ═══════════════════════════════════════════════════════
 
 function renderTableHead() {
   const thead = document.getElementById('table-head');
   thead.innerHTML = `<tr>${COLS.map(col => {
-    const isSort = col.key === sortCol;
-    const cls = isSort ? (sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc') : '';
+    const cls = col.key === sortCol ? (sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc') : '';
     return `<th class="${cls}" data-key="${col.key}" title="${col.tooltip || col.label}">${col.label}</th>`;
   }).join('')}</tr>`;
-
   thead.querySelectorAll('th[data-key]').forEach(th => {
     th.addEventListener('click', () => {
       const key = th.dataset.key;
-      if (sortCol === key) {
-        sortDir = sortDir === 'desc' ? 'asc' : 'desc';
-      } else {
-        sortCol = key;
-        sortDir = 'desc';
-      }
+      if (sortCol === key) sortDir = sortDir === 'desc' ? 'asc' : 'desc';
+      else { sortCol = key; sortDir = 'desc'; }
       applyFiltersAndRender();
     });
   });
@@ -906,22 +771,11 @@ function renderTableHead() {
 
 function renderTableBody(stocks) {
   const tbody = document.getElementById('table-body');
-
   if (!stocks.length) {
     tbody.innerHTML = `<tr><td colspan="${COLS.length}" style="text-align:center;padding:40px;color:var(--text-dim)">NO RESULTS</td></tr>`;
     return;
   }
-
-  // Group by sector when showing all
-  const SECTOR_ORDER = [
-    "Technology","Healthcare","Financials","Consumer Discretionary",
-    "Communication Services","Industrials","Consumer Staples","Energy",
-    "Utilities","Real Estate","Materials","Other"
-  ];
-
-  let rows = '';
-  let lastSector = null;
-
+  let rows = '', lastSector = null;
   for (const stock of stocks) {
     const sector = stock.sector || 'Other';
     if (currentSector === 'ALL' && sector !== lastSector) {
@@ -930,37 +784,20 @@ function renderTableBody(stocks) {
     }
     rows += `<tr>${COLS.map(col => `<td>${renderCell(col, stock)}</td>`).join('')}</tr>`;
   }
-
   tbody.innerHTML = rows;
 }
 
-// ═══════════════════════════════════════════════════════
-// FILTER & SORT
-// ═══════════════════════════════════════════════════════
-
-const SECTOR_ORDER_LIST = [
-  "ALL","Technology","Healthcare","Financials","Consumer Discretionary",
-  "Communication Services","Industrials","Consumer Staples","Energy",
-  "Utilities","Real Estate","Materials","Other"
-];
+const SECTOR_ORDER_LIST = ["ALL","Technology","Healthcare","Financials","Consumer Discretionary","Communication Services","Industrials","Consumer Staples","Energy","Utilities","Real Estate","Materials","Other"];
 
 function buildSectorNav(stocks) {
   const nav = document.getElementById('sector-nav');
-  const sectorCounts = {};
-  stocks.forEach(s => {
-    const sec = s.sector || 'Other';
-    sectorCounts[sec] = (sectorCounts[sec] || 0) + 1;
-  });
-
-  const sectors = ['ALL', ...SECTOR_ORDER_LIST.slice(1).filter(s => sectorCounts[s])];
-
+  const counts = {};
+  stocks.forEach(s => { const sec = s.sector || 'Other'; counts[sec] = (counts[sec] || 0) + 1; });
+  const sectors = ['ALL', ...SECTOR_ORDER_LIST.slice(1).filter(s => counts[s])];
   nav.innerHTML = sectors.map(s => {
-    const count = s === 'ALL' ? stocks.length : sectorCounts[s] || 0;
-    return `<button class="sector-tab ${s === currentSector ? 'active' : ''}" data-sector="${s}">
-      ${s === 'ALL' ? 'ALL SECTORS' : s.toUpperCase().slice(0,12)}&nbsp;<span style="color:var(--text-dim)">${count}</span>
-    </button>`;
+    const count = s === 'ALL' ? stocks.length : counts[s] || 0;
+    return `<button class="sector-tab ${s === currentSector ? 'active' : ''}" data-sector="${s}">${s === 'ALL' ? 'ALL SECTORS' : s.toUpperCase().slice(0,12)}&nbsp;<span style="color:var(--text-dim)">${count}</span></button>`;
   }).join('');
-
   nav.querySelectorAll('.sector-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       currentSector = btn.dataset.sector;
@@ -973,148 +810,55 @@ function buildSectorNav(stocks) {
 
 function applyFiltersAndRender() {
   let stocks = [...allStocks];
-
-  // Sector filter
-  if (currentSector !== 'ALL') {
-    stocks = stocks.filter(s => s.sector === currentSector);
-  }
-
-  // Cap filter
-  if (currentFilter === 'megacap') {
-    stocks = stocks.filter(s => s.market_cap >= 200e9);
-  } else if (currentFilter === 'largecap') {
-    stocks = stocks.filter(s => s.market_cap >= 10e9);
-  }
-
-  // Search
-  if (searchQuery) {
-    const q = searchQuery.toLowerCase();
-    stocks = stocks.filter(s =>
-      (s.ticker || '').toLowerCase().includes(q) ||
-      (s.name || '').toLowerCase().includes(q)
-    );
-  }
-
-  // Sort
+  if (currentSector !== 'ALL') stocks = stocks.filter(s => s.sector === currentSector);
   stocks.sort((a, b) => {
     let av = a[sortCol], bv = b[sortCol];
     if (av === null || av === undefined) av = sortDir === 'desc' ? -Infinity : Infinity;
     if (bv === null || bv === undefined) bv = sortDir === 'desc' ? -Infinity : Infinity;
     return sortDir === 'desc' ? bv - av : av - bv;
   });
-
-  // When sorting, flatten sectors; when not, keep sector order for grouping
-  if (sortCol !== 'market_cap') {
-    // User is sorting by a metric — flatten
-    filteredStocks = stocks;
-  } else {
-    // Default: keep sector-grouped order (already sorted by mcap within sector)
-    filteredStocks = stocks;
-  }
-
-  document.getElementById('result-count').textContent = `${filteredStocks.length} STOCKS`;
+  filteredStocks = stocks;
   renderTableHead();
   renderTableBody(filteredStocks);
 }
 
-// ═══════════════════════════════════════════════════════
-// SUMMARY BAR
-// ═══════════════════════════════════════════════════════
-
 function renderSummary(summary) {
   const bar = document.getElementById('summary-bar');
   const items = [
-    { label: 'TOTAL STOCKS',    value: summary.total_stocks?.toLocaleString() },
-    { label: 'TOTAL MKTCAP',    value: `${summary.total_market_cap_t}T` },
-    { label: 'SECTORS',         value: summary.sectors },
-    { label: 'AS OF',           value: summary.last_updated ? new Date(summary.last_updated).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : '—' },
+    { label: 'TOTAL STOCKS', value: summary.total_stocks?.toLocaleString() },
+    { label: 'TOTAL MKTCAP', value: `${summary.total_market_cap_t}T` },
+    { label: 'SECTORS',      value: summary.sectors },
+    { label: 'AS OF',        value: summary.last_updated ? new Date(summary.last_updated).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : '—' },
   ];
-  bar.innerHTML = items.map(i => `
-    <div class="summary-item">
-      <span class="s-label">${i.label}</span>
-      <span class="s-value">${i.value || '—'}</span>
-    </div>`).join('');
+  bar.innerHTML = items.map(i => `<div class="summary-item"><span class="s-label">${i.label}</span><span class="s-value">${i.value || '—'}</span></div>`).join('');
 }
-
-// ═══════════════════════════════════════════════════════
-// MAIN INIT
-// ═══════════════════════════════════════════════════════
 
 async function init() {
   try {
     const res = await fetch('./data/market.json');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-
-    // Hide loading, show content
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
-
-    // Metadata
     const genAt = data.meta?.generated_at;
     if (genAt) {
       const d = new Date(genAt);
-      document.getElementById('last-updated').textContent =
-        `UPDATED: ${d.toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})} ${d.toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit'})} UTC`;
+      document.getElementById('last-updated').textContent = `UPDATED: ${d.toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})} ${d.toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit'})} UTC`;
     }
-
-    // Macro
     if (data.macro) renderMacro(data.macro);
-
-    // Summary
     if (data.summary) renderSummary(data.summary);
-
-    // Flatten all stocks from sectors
     const sectors = data.sectors || {};
     allStocks = [];
-    const SECTOR_ORDER = [
-      "Technology","Healthcare","Financials","Consumer Discretionary",
-      "Communication Services","Industrials","Consumer Staples","Energy",
-      "Utilities","Real Estate","Materials","Other"
-    ];
-
-    for (const sector of SECTOR_ORDER) {
-      if (sectors[sector]) {
-        allStocks.push(...sectors[sector]);
-      }
-    }
-    // Add any extra sectors
-    for (const [sec, stocks] of Object.entries(sectors)) {
-      if (!SECTOR_ORDER.includes(sec)) allStocks.push(...stocks);
-    }
-
-    // Build sector nav
+    const ORDER = ["Technology","Healthcare","Financials","Consumer Discretionary","Communication Services","Industrials","Consumer Staples","Energy","Utilities","Real Estate","Materials","Other"];
+    for (const s of ORDER) if (sectors[s]) allStocks.push(...sectors[s]);
+    for (const [sec, stocks] of Object.entries(sectors)) if (!ORDER.includes(sec)) allStocks.push(...stocks);
     buildSectorNav(allStocks);
-
-    // Render table
     applyFiltersAndRender();
-
-    // Search
-    document.getElementById('search').addEventListener('input', e => {
-      searchQuery = e.target.value.trim();
-      applyFiltersAndRender();
-    });
-
-    // Filter buttons
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        currentFilter = btn.dataset.filter;
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        applyFiltersAndRender();
-      });
-    });
-
   } catch (err) {
-    document.getElementById('loading').innerHTML = `
-      <div class="loading-text" style="color:var(--c-bad)">ERROR LOADING DATA</div>
-      <div style="font-size:7px;color:var(--text-dim);margin-top:12px">${err.message}</div>
-      <div style="font-size:7px;color:var(--text-dim);margin-top:8px">RUN backend/fetch_data.py TO GENERATE data/market.json</div>
-    `;
+    document.getElementById('loading').innerHTML = `<div class="loading-text" style="color:var(--c-bad)">ERROR LOADING DATA</div>`;
     console.error(err);
   }
 }
-
 init();
 </script>
 </body>
