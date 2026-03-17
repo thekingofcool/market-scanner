@@ -1,9 +1,8 @@
 name: Market Data Updater
 
 on:
-  # 定时运行：每天美东时间下午 5 点（UTC 22:00）
   schedule:
-    - cron: '0 22 * * *'  # 每天 UTC 22:00 = 美东 17:00/18:00（夏令时/冬令时）
+    - cron: '0 16 * * 6'  # 北京时间每周日凌晨 00:00 运行
   
   # 手动触发
   workflow_dispatch:
@@ -11,7 +10,7 @@ on:
       max_tickers:
         description: 'Maximum tickers to process'
         required: false
-        default: '5000'
+        default: '10000'
       request_delay:
         description: 'Delay between requests (seconds)'
         required: false
