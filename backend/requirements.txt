@@ -1,0 +1,13 @@
+# Market Scanner - Python Dependencies
+# For GitHub Actions and local development
+
+# Core dependencies
+yfinance>=0.2.32
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# Optional: Polygon SDK (only needed if using Polygon for stock list)
+# massive>=1.0.0
+
+# Note: GitHub Actions will install these automatically
+# Local development: pip install -r requirements.txt
