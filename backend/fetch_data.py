@@ -30,13 +30,7 @@ import requests
 import warnings
 from datetime import datetime
 from dotenv import load_dotenv
-
-# 抑制 urllib3 的 OpenSSL 警告（macOS LibreSSL 兼容性问题）
-warnings.filterwarnings('ignore', message='.*urllib3 v2.*')
-
-# Official Massive SDK — pip install massive
 from massive import RESTClient
-# Yahoo Finance — pip install yfinance
 import yfinance as yf
 
 load_dotenv()
@@ -320,64 +314,104 @@ def compute_metrics_from_yfinance(ticker_obj, market_cap):
     
     try:
         info = ticker_obj.info
-        
-        # 估值指标
-        metrics["pe"]        = info.get("trailingPE") or info.get("forwardPE")
-        metrics["ps"]        = info.get("priceToSalesTrailing12Months")
-        metrics["pb"]        = info.get("priceToBook")
-        metrics["ev_ebitda"] = info.get("enterpriseToEbitda")
-        
-        # 利润率
-        metrics["gross_margin"]     = round((info.get("grossMargins") or 0) * 100, 2) if info.get("grossMargins") else None
-        metrics["operating_margin"] = round((info.get("operatingMargins") or 0) * 100, 2) if info.get("operatingMargins") else None
-        metrics["net_margin"]       = round((info.get("profitMargins") or 0) * 100, 2) if info.get("profitMargins") else None
-        
-        # 回报率
-        metrics["roe"]  = round((info.get("returnOnEquity") or 0) * 100, 2) if info.get("returnOnEquity") else None
-        metrics["roa"]  = round((info.get("returnOnAssets") or 0) * 100, 2) if info.get("returnOnAssets") else None
-        metrics["roic"] = None  # yfinance 不直接提供，需要计算
-        
-        # 增长率
-        metrics["revenue_cagr"] = round((info.get("revenueGrowth") or 0) * 100, 2) if info.get("revenueGrowth") else None
-        metrics["eps_cagr"]     = round((info.get("earningsGrowth") or 0) * 100, 2) if info.get("earningsGrowth") else None
-        
-        # 杠杆指标
-        metrics["debt_ebitda"]       = info.get("debtToEbitda")
-        metrics["debt_equity"]       = info.get("debtToEquity")
-        metrics["interest_coverage"] = None  # 需要从财务报表计算
-        metrics["net_debt_ebitda"]   = None  # 需要计算
-        
-        # 现金流
-        fcf = info.get("freeCashflow")
+
+        # ── 基础财务数据（后续计算依赖） ──────────────────
+        ebitda       = info.get("ebitda")
+        total_debt   = info.get("totalDebt") or 0
+        total_cash   = info.get("totalCash") or 0
+        op_income    = info.get("operatingIncome") or info.get("ebit")
+        int_expense  = info.get("interestExpense")   # yfinance 返回负数
+        revenue      = info.get("totalRevenue")
+        fcf          = info.get("freeCashflow")
+        ev           = info.get("enterpriseValue")
+
+        # ── 估值指标 ──────────────────────────────────────
+        metrics["pe"]       = round(v, 2) if (v := info.get("trailingPE") or info.get("forwardPE")) else None
+        # ps_ratio — 前端 key 与后端对齐
+        metrics["ps_ratio"] = round(v, 2) if (v := info.get("priceToSalesTrailing12Months")) else None
+        metrics["pb_ratio"] = round(v, 2) if (v := info.get("priceToBook")) else None
+
+        # ev_ebit = enterpriseValue / operatingIncome（yfinance 无直接字段，手动算）
+        if ev and op_income and op_income > 0:
+            metrics["ev_ebit"] = round(ev / op_income, 2)
+        else:
+            metrics["ev_ebit"] = None
+
+        # ev_ebitda — 优先用 yfinance 直接字段，无则手动算
+        if (v := info.get("enterpriseToEbitda")):
+            metrics["ev_ebitda"] = round(v, 2)
+        elif ev and ebitda and ebitda > 0:
+            metrics["ev_ebitda"] = round(ev / ebitda, 2)
+        else:
+            metrics["ev_ebitda"] = None
+
+        # ── 利润率 ────────────────────────────────────────
+        metrics["gross_margin"]     = round(v * 100, 2) if (v := info.get("grossMargins"))     else None
+        metrics["operating_margin"] = round(v * 100, 2) if (v := info.get("operatingMargins")) else None
+        metrics["net_margin"]       = round(v * 100, 2) if (v := info.get("profitMargins"))    else None
+
+        # fcf_yield & fcf_margin
         if fcf and market_cap and market_cap > 0:
-            metrics["fcf_yield"] = round((fcf / market_cap) * 100, 2)
+            metrics["fcf_yield"]  = round((fcf / market_cap) * 100, 2)
         else:
-            metrics["fcf_yield"] = None
-        
-        revenue = info.get("totalRevenue")
-        if fcf and revenue and revenue > 0:
-            metrics["fcf_margin"] = round((fcf / revenue) * 100, 2)
+            metrics["fcf_yield"]  = None
+        metrics["fcf_margin"] = round((fcf / revenue) * 100, 2) if (fcf and revenue and revenue > 0) else None
+
+        # ── 回报率 ────────────────────────────────────────
+        metrics["roe"] = round(v * 100, 2) if (v := info.get("returnOnEquity")) else None
+        metrics["roa"] = round(v * 100, 2) if (v := info.get("returnOnAssets")) else None
+
+        # roic = operatingIncome * (1 - tax_rate) / (totalDebt + equity - cash)
+        # yfinance 没有直接 ROIC，手动从报表计算
+        equity = info.get("totalStockholderEquity") or info.get("bookValue")
+        # bookValue 有时是每股值，需要乘股数
+        if equity and equity < 100_000:
+            shares = info.get("sharesOutstanding") or 0
+            equity = equity * shares
+        tax_rate     = info.get("effectiveTaxRate") or 0.21
+        invested_cap = (equity or 0) + total_debt - total_cash
+        if op_income and invested_cap and invested_cap > 0:
+            metrics["roic"] = round((op_income * (1 - tax_rate) / invested_cap) * 100, 2)
         else:
-            metrics["fcf_margin"] = None
-        
-        # 原始财务数据（百万美元）
-        metrics["revenue_ttm"]    = round(revenue / 1e6, 1) if revenue else None
-        metrics["ebitda_ttm"]     = round(info.get("ebitda") / 1e6, 1) if info.get("ebitda") else None
-        metrics["fcf_ttm"]        = round(fcf / 1e6, 1) if fcf else None
-        metrics["net_income_ttm"] = round(info.get("netIncomeToCommon") / 1e6, 1) if info.get("netIncomeToCommon") else None
+            metrics["roic"] = None
+
+        # ── 增长率 ────────────────────────────────────────
+        metrics["revenue_cagr"] = round(v * 100, 2) if (v := info.get("revenueGrowth"))  else None
+        metrics["eps_cagr"]     = round(v * 100, 2) if (v := info.get("earningsGrowth")) else None
+
+        # ── 杠杆指标 ──────────────────────────────────────
+        # debt_ebitda — yfinance info 没有 debtToEbitda，手动算
+        if total_debt and ebitda and ebitda > 0:
+            metrics["debt_ebitda"] = round(total_debt / ebitda, 2)
+        else:
+            metrics["debt_ebitda"] = None
+
+        # net_debt_ebitda
+        net_debt = total_debt - total_cash
+        metrics["net_debt_ebitda"] = round(net_debt / ebitda, 2) if (ebitda and ebitda > 0) else None
+
+        # debt_equity — yfinance 返回的是百分比（如 45.3 表示 45.3%），需除以 100
+        if (v := info.get("debtToEquity")):
+            metrics["debt_equity"] = round(v / 100, 2)
+        else:
+            metrics["debt_equity"] = None
+
+        # interest_coverage = operatingIncome / abs(interestExpense)
+        # yfinance interestExpense 通常是负数
+        if op_income and int_expense and int_expense != 0:
+            metrics["interest_coverage"] = round(op_income / abs(int_expense), 2)
+        else:
+            metrics["interest_coverage"] = None
+
+        # ── 原始财务数据（百万美元） ──────────────────────
+        metrics["revenue_ttm"]    = round(revenue / 1e6,  1) if revenue               else None
+        metrics["ebitda_ttm"]     = round(ebitda  / 1e6,  1) if ebitda                else None
+        metrics["fcf_ttm"]        = round(fcf     / 1e6,  1) if fcf                   else None
+        metrics["net_income_ttm"] = round(v       / 1e6,  1) if (v := info.get("netIncomeToCommon")) else None
         metrics["eps"]            = info.get("trailingEps")
-        
-        # 流通股（百万）
-        shares = info.get("sharesOutstanding")
-        metrics["shares_outstanding"] = round(shares / 1e6, 1) if shares else None
-        
-        # 四舍五入所有比率
-        for key in ["pe", "ps", "pb", "ev_ebitda", "debt_ebitda", "debt_equity"]:
-            if metrics.get(key) is not None:
-                metrics[key] = round(metrics[key], 2)
-        
+        metrics["shares_outstanding"] = round(v / 1e6, 1) if (v := info.get("sharesOutstanding")) else None
+
     except Exception as e:
-        # 如果获取失败，返回空字典（会在后面显示为 —）
         pass
     
     return metrics
