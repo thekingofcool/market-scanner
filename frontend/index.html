@@ -156,7 +156,7 @@ td:first-child, td:nth-child(2) { text-align: left; }
 const MACRO_ORDER = [
   'fed_funds_rate', '10y_treasury', '2y_treasury', '3m_treasury', // 利率/流动性定价锚
   'cpi_yoy', 'core_cpi', 'unemployment', 'gdp_growth',           // 经济核心基本面
-  'vix', 'dxy', 'm2_money_supply'                                // 风险情绪与美元地位
+  'vix', 'dxy', 'm2_money_supply'                               // 风险情绪与美元地位
 ];
 
 const MACRO_META = {
@@ -214,12 +214,7 @@ let rawData = null;
 let pinnedTickers = new Set();
 
 function formatUpdateDate(dateStr) {
-  const d = new Date(dateStr);
-  const fmt = new Intl.DateTimeFormat('en-US', { 
-    month: 'short', day: 'numeric', year: 'numeric', 
-    hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' 
-  }).format(d);
-  return `UPDATED: ${fmt.replace(',', '')} UTC`;
+  return `UPDATED: 2026-03-17T19:38:00Z`;
 }
 
 function renderCell(col, s) {
