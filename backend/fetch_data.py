@@ -44,7 +44,7 @@ load_dotenv()
 MASSIVE_API_KEY = os.getenv("MASSIVE_API_KEY") or os.getenv("POLYGON_API_KEY", "")
 FRED_API_KEY    = os.getenv("FRED_API_KEY", "")
 MAX_TICKERS     = int(os.getenv("MAX_TICKERS", "5000"))
-MIN_MARKET_CAP  = 500_000_000   # skip < $500M market cap
+MIN_MARKET_CAP  = 500_000_000   # skip < $500M market cap — 改这里可调整门槛
 OUTPUT_PATH     = os.path.join(os.path.dirname(__file__), "../frontend/data/market.json")
 
 # Rate limiting settings (可在 .env 中覆盖)
@@ -389,6 +389,14 @@ def compute_metrics_from_yfinance(ticker_obj, market_cap):
 
 def process_ticker(symbol):
     try:
+        # ── 快速市值检查（再次确认，防止 fast_info 误判漏网） ──
+        try:
+            mcap_quick = getattr(yf.Ticker(symbol).fast_info, "market_cap", None)
+            if mcap_quick is not None and mcap_quick < MIN_MARKET_CAP:
+                return None
+        except Exception:
+            pass  # fast_info 失败则继续走完整流程
+
         # ── Reference / company details (Polygon - 免费) ──
         ref        = retry_with_backoff(client.get_ticker_details, symbol)
         name       = getattr(ref, "name", symbol)
@@ -503,6 +511,36 @@ def build_market_data():
         print(f"  Ticker list error: {e}")
 
     print(f"✅ {len(symbols)} tickers queued")
+
+    # ── Phase 1: 批量预过滤市值 ────────────────────────
+    # 用 yf.fast_info（比 .info 快 ~10x）批量检查市值，提前丢掉不合格的
+    # 避免对数千只小市值股票浪费 yfinance .info 请求
+    print(f"\n🔍 Pre-filtering by market cap ≥ ${MIN_MARKET_CAP/1e9:.1f}B ...")
+    qualified_symbols = []
+    batch_size = 100
+    for i in range(0, len(symbols), batch_size):
+        batch = symbols[i : i + batch_size]
+        try:
+            tickers_obj = yf.Tickers(" ".join(batch))
+            for sym in batch:
+                try:
+                    mcap = getattr(tickers_obj.tickers[sym].fast_info, "market_cap", None)
+                    if mcap and mcap >= MIN_MARKET_CAP:
+                        qualified_symbols.append(sym)
+                except Exception:
+                    # fast_info 失败时保留，让后续 process_ticker 再判断
+                    qualified_symbols.append(sym)
+            time.sleep(0.3)
+        except Exception as e:
+            # 整批失败时全部保留，不丢数据
+            qualified_symbols.extend(batch)
+            time.sleep(1)
+        if (i // batch_size + 1) % 10 == 0:
+            print(f"  Pre-filter: checked {i + len(batch)}/{len(symbols)}, "
+                  f"qualified so far: {len(qualified_symbols)}")
+
+    print(f"✅ Pre-filter done: {len(qualified_symbols)}/{len(symbols)} stocks pass ≥${MIN_MARKET_CAP/1e9:.1f}B\n")
+    symbols = qualified_symbols
 
     # ── Process tickers ────────────────────────────────
     est_time_min = (len(symbols) * REQUEST_DELAY) / 60
