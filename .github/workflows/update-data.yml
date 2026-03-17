@@ -10,7 +10,7 @@ on:
       max_tickers:
         description: 'Maximum tickers to process'
         required: false
-        default: '10000'
+        default: '5000'
       request_delay:
         description: 'Delay between requests (seconds)'
         required: false
