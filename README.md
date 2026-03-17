@@ -81,8 +81,6 @@ python -m http.server 8080
 
 ## 部署到 Cloudflare Pages
 
-### 方法 A：Cloudflare Pages（推荐）
-
 1. 将项目推送到 GitHub
 2. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com)
 3. Pages → Create a project → Connect to Git
@@ -92,20 +90,6 @@ python -m http.server 8080
    - **Build output directory**: `frontend`
 6. 部署完成后，`_worker.js` 会自动作为 Worker 运行
 
-### 方法 B：Cloudflare Workers + KV
-
-```bash
-# 安装 Wrangler
-npm install -g wrangler
-
-# 登录
-wrangler login
-
-# 部署
-cd frontend
-wrangler deploy
-```
-
 ---
 
 ## 自动化更新数据（GitHub Actions）
@@ -114,7 +98,7 @@ wrangler deploy
    - `POLYGON_API_KEY`
    - `FRED_API_KEY`
 
-2. 每个工作日 UTC 6:30（美股开盘前）自动运行，更新 `market.json` 并推送。
+2. 每周日北京时间零点自动运行，更新 `market.json` 并推送。
 
 也可手动触发：GitHub Actions → Update Market Data → Run workflow
 
