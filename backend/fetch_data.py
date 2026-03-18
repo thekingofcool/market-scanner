@@ -44,7 +44,7 @@ load_dotenv()
 MASSIVE_API_KEY = os.getenv("MASSIVE_API_KEY") or os.getenv("POLYGON_API_KEY", "")
 FRED_API_KEY    = os.getenv("FRED_API_KEY", "")
 MAX_TICKERS     = int(os.getenv("MAX_TICKERS", "5000"))
-MIN_MARKET_CAP  = 500_000_000   # skip < $500M market cap — 改这里可调整门槛
+MIN_MARKET_CAP  = 5_000_000_000   # 拉取下限 $5B
 OUTPUT_PATH     = os.path.join(os.path.dirname(__file__), "../frontend/data/market.json")
 
 # Rate limiting settings (可在 .env 中覆盖)
@@ -412,35 +412,52 @@ def compute_metrics_from_yfinance(ticker_obj, market_cap):
 
 
 # ═══════════════════════════════════════════════════════
-# 4. PER-TICKER PIPELINE  (SDK calls, Bearer auth auto)
+# 4. PER-TICKER PIPELINE  (市值优先过滤 - 改动部分)
 # ═══════════════════════════════════════════════════════
+
+def get_market_cap_only(symbol):
+    """
+    🎯 轻量级: 仅获取市值，不拉取其他数据
+    返回: market_cap (USD) 或 None
+    """
+    try:
+        # 方法 1: 使用 fast_info（最快）
+        ticker = yf.Ticker(symbol)
+        fast_info = ticker.fast_info
+        market_cap = getattr(fast_info, "market_cap", None)
+        
+        if market_cap is not None:
+            return market_cap
+        
+        # 方法 2: 降级到 info（如果 fast_info 失败）
+        info = ticker.info
+        return info.get("marketCap")
+        
+    except Exception:
+        return None
+
 
 def process_ticker(symbol):
     try:
-        # ── 快速市值检查（再次确认，防止 fast_info 误判漏网） ──
-        try:
-            mcap_quick = getattr(yf.Ticker(symbol).fast_info, "market_cap", None)
-            if mcap_quick is not None and mcap_quick < MIN_MARKET_CAP:
-                return None
-        except Exception:
-            pass  # fast_info 失败则继续走完整流程
-
-        # ── Reference / company details (Polygon - 免费) ──
+        # ── Step 1: 轻量级市值查询（新增）──────────────
+        market_cap = get_market_cap_only(symbol)
+        
+        # 市值查询失败或低于门槛，直接跳过
+        if not market_cap or market_cap < MIN_MARKET_CAP:
+            return None
+        
+        # ── Step 2: 符合条件，获取完整数据────────────────
         ref        = retry_with_backoff(client.get_ticker_details, symbol)
         name       = getattr(ref, "name", symbol)
         sic_desc   = getattr(ref, "sic_description", None)
         exchange   = getattr(ref, "primary_exchange", None)
         sector     = normalize_sector(sic_desc)
 
-        # ── 所有数据从 Yahoo Finance 获取 ─────────────
+        # ── 从 Yahoo Finance 获取完整数据 ─────────────
         ticker_obj, info = get_yfinance_data_safe(symbol)
         
         if not info:
-            # yfinance 完全失败 - 使用 Polygon 的基本数据
-            market_cap = getattr(ref, "market_cap", None)
-            if market_cap and market_cap < MIN_MARKET_CAP:
-                return None
-            
+            # yfinance 失败时，使用已有的市值和基本信息
             return {
                 "ticker":       symbol,
                 "name":         name,
@@ -454,7 +471,6 @@ def process_ticker(symbol):
             }
         
         # 成功获取 yfinance 数据
-        market_cap = info.get("marketCap")
         price      = info.get("currentPrice") or info.get("regularMarketPrice")
         prev_close = info.get("previousClose")
         volume     = info.get("volume")
@@ -468,17 +484,13 @@ def process_ticker(symbol):
             if yf_sector:
                 sector = normalize_sector(yf_sector)
         
-        # 市值过滤
-        if market_cap and market_cap < MIN_MARKET_CAP:
-            return None
-        
         # 计算涨跌幅
         change_pct = None
         if price and prev_close and prev_close > 0:
             change_pct = round((price / prev_close - 1) * 100, 2)
         
         # 获取财务指标
-        metrics = compute_metrics_from_yfinance(ticker_obj, market_cap) if market_cap else {}
+        metrics = compute_metrics_from_yfinance(ticker_obj, market_cap)
         
         return {
             "ticker":       symbol,
@@ -508,8 +520,8 @@ def build_market_data():
     print(f"   - Polygon API (free): Stock list, company names")
     print(f"   - Yahoo Finance: All prices & financial metrics")
     print(f"⚙️  Rate limit: {1/REQUEST_DELAY:.1f} req/sec  |  Delay: {REQUEST_DELAY}s  |  Retries: {MAX_RETRIES}")
-    print(f"⚠️  Yahoo Finance has strict rate limits - be patient!")
-    print(f"💡 If you hit rate limits, increase REQUEST_DELAY in .env\n")
+    print(f"💰 Market cap filter: ≥ ${MIN_MARKET_CAP/1e9:.0f}B (市值优先过滤)")
+    print(f"⚠️  Yahoo Finance has strict rate limits - be patient!\n")
 
     # ── Macro ──────────────────────────────────────────
     macro = fetch_macro()
@@ -527,12 +539,7 @@ def build_market_data():
         ):
             sym = getattr(t, "ticker", None)
             if sym:
-                # 可选: 如果需要过滤特定交易所,在这里添加过滤逻辑
-                exchange = getattr(t, "primary_exchange", "")
-                if exchange in ["XNAS", "XNYS", "XASE"]:
-                    symbols.append(sym)
-                else:
-                    symbols.append(sym)  # 或者注释这行以仅保留特定交易所
+                symbols.append(sym)
             if len(symbols) >= MAX_TICKERS:
                 break
     except Exception as e:
@@ -540,35 +547,7 @@ def build_market_data():
 
     print(f"✅ {len(symbols)} tickers queued")
 
-    # ── Phase 1: 批量预过滤市值 ────────────────────────
-    # 用 yf.fast_info（比 .info 快 ~10x）批量检查市值，提前丢掉不合格的
-    # 避免对数千只小市值股票浪费 yfinance .info 请求
-    print(f"\n🔍 Pre-filtering by market cap ≥ ${MIN_MARKET_CAP/1e9:.1f}B ...")
-    qualified_symbols = []
-    batch_size = 100
-    for i in range(0, len(symbols), batch_size):
-        batch = symbols[i : i + batch_size]
-        try:
-            tickers_obj = yf.Tickers(" ".join(batch))
-            for sym in batch:
-                try:
-                    mcap = getattr(tickers_obj.tickers[sym].fast_info, "market_cap", None)
-                    if mcap and mcap >= MIN_MARKET_CAP:
-                        qualified_symbols.append(sym)
-                except Exception:
-                    # fast_info 失败时保留，让后续 process_ticker 再判断
-                    qualified_symbols.append(sym)
-            time.sleep(0.3)
-        except Exception as e:
-            # 整批失败时全部保留，不丢数据
-            qualified_symbols.extend(batch)
-            time.sleep(1)
-        if (i // batch_size + 1) % 10 == 0:
-            print(f"  Pre-filter: checked {i + len(batch)}/{len(symbols)}, "
-                  f"qualified so far: {len(qualified_symbols)}")
-
-    print(f"✅ Pre-filter done: {len(qualified_symbols)}/{len(symbols)} stocks pass ≥${MIN_MARKET_CAP/1e9:.1f}B\n")
-    symbols = qualified_symbols
+    # ── 移除 Phase 1 批量预过滤（改用在 process_ticker 中的轻量级查询）────
 
     # ── Process tickers ────────────────────────────────
     est_time_min = (len(symbols) * REQUEST_DELAY) / 60
@@ -591,7 +570,7 @@ def build_market_data():
         else:
             failed += 1
 
-        time.sleep(REQUEST_DELAY)   # 使用配置的延迟时间
+        time.sleep(REQUEST_DELAY)
 
     print(f"\n✅ {len(stocks)} valid  |  {failed} skipped")
 
