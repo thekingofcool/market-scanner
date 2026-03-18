@@ -44,7 +44,7 @@ load_dotenv()
 MASSIVE_API_KEY = os.getenv("MASSIVE_API_KEY") or os.getenv("POLYGON_API_KEY", "")
 FRED_API_KEY    = os.getenv("FRED_API_KEY", "")
 MAX_TICKERS     = int(os.getenv("MAX_TICKERS", "5000"))
-MIN_MARKET_CAP  = 5_000_000_000   # 拉取下限 $5B
+MIN_MARKET_CAP  = 5_000_000_000   # 拉取公司市值下限 5B
 OUTPUT_PATH     = os.path.join(os.path.dirname(__file__), "../frontend/data/market.json")
 
 # Rate limiting settings (可在 .env 中覆盖)
@@ -320,7 +320,13 @@ def compute_metrics_from_yfinance(ticker_obj, market_cap):
         ebitda       = info.get("ebitda")
         total_debt   = info.get("totalDebt") or 0
         total_cash   = info.get("totalCash") or 0
-        op_income    = info.get("operatingIncome") or info.get("ebit")
+        # 优先级：operatingIncome > ebit > (ebitda 估算)
+        op_income    = info.get("operatingIncome")
+        if not op_income:
+            op_income = info.get("ebit")
+        if not op_income and ebitda:
+            # Fallback: 用 EBITDA 估算 EBIT（假设 D&A ≈ 20% EBITDA）
+            op_income = ebitda * 0.8
         int_expense  = info.get("interestExpense")   # yfinance 返回负数
         revenue      = info.get("totalRevenue")
         fcf          = info.get("freeCashflow")
@@ -343,8 +349,18 @@ def compute_metrics_from_yfinance(ticker_obj, market_cap):
         metrics["ev_ebitda"] = round(info.get("enterpriseToEbitda"), 2) if info.get("enterpriseToEbitda") else None
 
         # EV/EBIT — 需要计算：enterpriseValue / operatingIncome
-        if ev and op_income and op_income > 0:
-            metrics["ev_ebit"] = round(ev / op_income, 2)
+        # Fallback: 如果没有 EV，用 market_cap + net_debt 估算
+        ev_calc = ev
+        if not ev_calc and market_cap and (total_debt or total_cash):
+            ev_calc = market_cap + (total_debt - total_cash)
+        
+        if ev_calc and op_income and op_income > 0:
+            ev_ebit_val = ev_calc / op_income
+            # 限制 EV/EBIT 在 [0.5, 100] 以过滤异常值
+            if 0.5 < ev_ebit_val < 100:
+                metrics["ev_ebit"] = round(ev_ebit_val, 2)
+            else:
+                metrics["ev_ebit"] = None
         else:
             metrics["ev_ebit"] = None
 
@@ -368,8 +384,14 @@ def compute_metrics_from_yfinance(ticker_obj, market_cap):
         # 投入资本 = 股东权益 + 有息负债 - 现金
         tax_rate     = info.get("effectiveTaxRate") or 0.21
         invested_cap = (total_equity or 0) + total_debt - total_cash
-        if op_income and invested_cap and invested_cap > 0:
-            metrics["roic"] = round((op_income * (1 - tax_rate) / invested_cap) * 100, 2)
+        # 如果 invested_cap < 0 或极小，说明现金多于债务，不计算（不代表坏）
+        if op_income and invested_cap and invested_cap > 1e7:  # > 1000万美元
+            roic_val = (op_income * (1 - tax_rate) / invested_cap) * 100
+            # 限制 ROIC 在 [-200%, 200%] 以过滤异常值
+            if -200 <= roic_val <= 200:
+                metrics["roic"] = round(roic_val, 2)
+            else:
+                metrics["roic"] = None
         else:
             metrics["roic"] = None
 
@@ -388,8 +410,15 @@ def compute_metrics_from_yfinance(ticker_obj, market_cap):
 
         # Interest Coverage = EBIT / |利息支出|
         # yfinance interestExpense 通常为负数（支出）
-        if op_income and int_expense and int_expense != 0:
-            metrics["interest_coverage"] = round(op_income / abs(int_expense), 2)
+        # Fallback: 用 debt * 利率 估算利息支出
+        actual_int = int_expense
+        if not int_expense or int_expense == 0:
+            # 估算利息：总债务 * 假设利率 3.5%
+            if total_debt and total_debt > 0:
+                actual_int = total_debt * 0.035
+        
+        if op_income and actual_int and actual_int != 0:
+            metrics["interest_coverage"] = round(op_income / abs(actual_int), 2)
         else:
             metrics["interest_coverage"] = None
 
