@@ -58,14 +58,12 @@ body {
 #macro-wrapper { margin-bottom: 60px; }
 .macro-grid {
   display: grid;
-  /* 默认 PC 一行多个 */
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 1px;
   background: var(--border);
   border: 1px solid var(--border);
 }
 
-/* 移动端优化：一行两个指标 */
 @media (max-width: 600px) {
   .macro-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -117,9 +115,65 @@ td:first-child, td:nth-child(2) { text-align: left; }
 
 .sector-row td { padding: 45px 10px 15px; color: var(--accent); font-size: 11px; letter-spacing: 0.2em; border-bottom: 1px solid var(--border); }
 #loading { padding: 100px; text-align: center; color: var(--text-dim); }
+
+/* ─── TOOLTIP ─── */
+/* 有 tooltip 的文字加虚线下划线提示 */
+.has-tip {
+  border-bottom: 1px dashed var(--text-dim);
+  cursor: help;
+  display: inline-block;
+}
+
+#tooltip {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  max-width: 280px;
+}
+#tooltip.visible { opacity: 1; }
+
+.tooltip-inner {
+  background: #1a1a1a;
+  border: 1px solid #444;
+  padding: 12px 14px;
+  font-family: var(--font);
+  font-size: 8px;
+  line-height: 1.8;
+  color: var(--text);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+}
+.tooltip-title {
+  color: var(--accent);
+  font-size: 9px;
+  margin-bottom: 8px;
+  letter-spacing: 0.1em;
+}
+.tooltip-desc {
+  color: var(--text-mid);
+  margin-bottom: 6px;
+}
+.tooltip-formula {
+  color: #aaffaa;
+  border-top: 1px solid #333;
+  padding-top: 6px;
+  margin-top: 6px;
+  font-size: 7px;
+  letter-spacing: 0.05em;
+}
 </style>
 </head>
 <body>
+
+<!-- 全局 Tooltip 容器 -->
+<div id="tooltip">
+  <div class="tooltip-inner">
+    <div class="tooltip-title" id="tip-title"></div>
+    <div class="tooltip-desc" id="tip-desc"></div>
+    <div class="tooltip-formula" id="tip-formula"></div>
+  </div>
+</div>
 
 <div class="container">
   <div class="header-line">
@@ -152,62 +206,296 @@ td:first-child, td:nth-child(2) { text-align: left; }
 </div>
 
 <script>
-// 1. 宏观指标 11项完整回归 & 按深度逻辑排序
+// ─── TOOLTIP 数据字典 ───────────────────────────────────────────────────────
+// 每项：{ title, desc, formula }
+// formula 可为空字符串
+const TIPS = {
+  // 宏观指标
+  fed_funds_rate: {
+    title: '联邦基金利率',
+    desc: '美联储设定的银行间隔夜拆借利率，是全球资产定价最重要的基准利率。利率上升→融资成本升高、估值承压；利率下降→流动性宽松、风险资产受益。',
+    formula: ''
+  },
+  '10y_treasury': {
+    title: '美国10年期国债收益率',
+    desc: '长端利率的基准，代表市场对未来长期经济增长与通胀的预期。也是股票"无风险折现率"的核心输入——收益率越高，股票估值越承压。',
+    formula: '股权风险溢价 = 股票预期回报率 − 10Y国债收益率'
+  },
+  '2y_treasury': {
+    title: '美国2年期国债收益率',
+    desc: '短端利率，对美联储政策预期最敏感。当2Y > 10Y时出现"收益率曲线倒挂"，历史上是经济衰退的前瞻信号。',
+    formula: '利差（期限溢价）= 10Y收益率 − 2Y收益率'
+  },
+  '3m_treasury': {
+    title: '美国3个月期国债收益率',
+    desc: '超短端利率，最贴近当前联邦基金利率水平，反映市场对近期货币政策的定价。',
+    formula: ''
+  },
+  cpi_yoy: {
+    title: '消费者物价指数（同比）',
+    desc: '衡量一篮子消费品和服务价格较一年前的涨幅，是最广泛使用的通胀指标。CPI偏高会促使美联储加息，压制股票和债券估值。',
+    formula: 'CPI同比 = (本期CPI − 去年同期CPI) ÷ 去年同期CPI × 100%'
+  },
+  core_cpi: {
+    title: '核心CPI（同比）',
+    desc: '剔除波动较大的食品和能源价格后的CPI，更能反映通胀的持续性趋势，是美联储决策时更关注的指标。',
+    formula: '核心CPI = CPI − 食品分项 − 能源分项（同比计算同上）'
+  },
+  unemployment: {
+    title: '失业率',
+    desc: '劳动力市场健康程度的核心指标。失业率过低可能引发工资通胀压力；过高则意味着经济衰退风险。美联储的"双重使命"之一即为最大化就业。',
+    formula: '失业率 = 失业人数 ÷ 劳动力总人数 × 100%'
+  },
+  gdp_growth: {
+    title: 'GDP实际增长率',
+    desc: '衡量一国经济总产出的增速，剔除通胀影响。连续两个季度负增长为技术性衰退。GDP增长强劲通常利好企业盈利和股市。',
+    formula: 'GDP增速 = (本期实际GDP − 上期实际GDP) ÷ 上期实际GDP × 100%'
+  },
+  vix: {
+    title: 'VIX恐慌指数',
+    desc: '芝加哥期权交易所基于标普500期权隐含波动率计算的"市场恐惧温度计"。VIX > 30通常表示市场极度恐慌，往往是逆向买入信号；VIX < 15代表市场情绪平稳。',
+    formula: '基于SPX未来30天期权的隐含波动率加权合成（非简单公式）'
+  },
+  dxy: {
+    title: '美元指数（DXY）',
+    desc: '美元相对于一篮子六种主要货币（EUR、JPY、GBP、CAD、SEK、CHF）的加权汇率指数。美元走强通常压制大宗商品价格和新兴市场资产。',
+    formula: 'DXY = EUR(57.6%) + JPY(13.6%) + GBP(11.9%) + CAD(9.1%) + SEK(4.2%) + CHF(3.6%) 加权几何平均'
+  },
+  m2_money_supply: {
+    title: 'M2货币供应量',
+    desc: '包括现金、活期存款、储蓄存款及小额定期存款的广义货币总量。M2快速扩张通常意味着市场流动性充裕，有利于风险资产上涨；收缩则相反。',
+    formula: 'M2 = 流通中现金(M0) + 活期存款 + 储蓄存款 + 小额定期存款'
+  },
+
+  // 股票指标
+  market_cap_b: {
+    title: '市值（十亿美元）',
+    desc: '公司在股票市场上的总价值，反映市场对公司整体规模的定价。',
+    formula: '市值 = 当前股价 × 总流通股数'
+  },
+  price: {
+    title: '股价',
+    desc: '最新交易价格，单位为美元。',
+    formula: ''
+  },
+  change_pct: {
+    title: '日涨跌幅',
+    desc: '相对前一交易日收盘价的价格变动百分比。',
+    formula: '涨跌幅 = (今日收盘价 − 昨日收盘价) ÷ 昨日收盘价 × 100%'
+  },
+  pe: {
+    title: '市盈率（P/E）',
+    desc: '投资者为每一元盈利愿意支付的价格。P/E越高代表市场给予更高成长预期溢价，但也意味着估值风险更高。价值投资者通常偏好低P/E。',
+    formula: 'P/E = 股价 ÷ 每股收益（EPS）'
+  },
+  ev_ebit: {
+    title: 'EV/EBIT',
+    desc: '企业价值相对息税前利润的倍数，比P/E更能反映资本结构差异，适合跨公司横向比较。倍数越低估值越便宜。',
+    formula: 'EV/EBIT = 企业价值 ÷ 息税前利润\nEV = 市值 + 净负债'
+  },
+  ev_ebitda: {
+    title: 'EV/EBITDA',
+    desc: '企业价值相对息税折旧摊销前利润的倍数，常用于重资产行业和并购定价，消除折旧政策差异的影响。',
+    formula: 'EV/EBITDA = 企业价值 ÷ EBITDA\nEBITDA = 净利润 + 利息 + 税 + 折旧 + 摊销'
+  },
+  fcf_yield: {
+    title: '自由现金流收益率（FCF Yield）',
+    desc: '每花1元市值能获得多少分钱的自由现金流，类似"现金版股息率"。FCF Yield越高，说明公司用真实现金回报股东的能力越强，是价值投资的核心指标之一。',
+    formula: 'FCF Yield = 自由现金流 ÷ 市值 × 100%'
+  },
+  ps_ratio: {
+    title: '市销率（P/S）',
+    desc: '股价相对每股营收的倍数，适用于盈利为负或盈利不稳定的成长型公司（如早期SaaS）。P/S越低通常估值越便宜。',
+    formula: 'P/S = 市值 ÷ 年营业收入'
+  },
+  gross_margin: {
+    title: '毛利率',
+    desc: '扣除直接成本后的盈利占收入的比例，反映公司产品/服务的核心定价权与竞争壁垒。SaaS公司毛利率通常>70%；制造业通常较低。',
+    formula: '毛利率 = (营业收入 − 营业成本) ÷ 营业收入 × 100%'
+  },
+  operating_margin: {
+    title: '营业利润率',
+    desc: '扣除运营费用（含销售、研发、管理费用）后的利润率，衡量公司主营业务的真实盈利能力和规模效应。',
+    formula: '营业利润率 = 营业利润（EBIT）÷ 营业收入 × 100%'
+  },
+  net_margin: {
+    title: '净利润率',
+    desc: '最终归属股东的利润占收入的比例，反映公司综合盈利能力，但会受税率、财务杠杆等非经营因素影响。',
+    formula: '净利润率 = 净利润 ÷ 营业收入 × 100%'
+  },
+  fcf_margin: {
+    title: '自由现金流利润率',
+    desc: '公司将收入转化为真实可支配现金的效率，比净利润率更难造假。FCF Margin高的公司通常具有强劲的护城河。',
+    formula: 'FCF Margin = 自由现金流 ÷ 营业收入 × 100%\n自由现金流 = 经营现金流 − 资本开支'
+  },
+  roic: {
+    title: '投入资本回报率（ROIC）',
+    desc: '公司每投入1元资本所创造的税后利润，是衡量资本配置效率和竞争优势的最核心指标之一。持续ROIC > 资本成本（WACC）= 真正的价值创造。',
+    formula: 'ROIC = NOPAT ÷ 投入资本\nNOPAT = 息税前利润 × (1 − 税率)\n投入资本 = 股东权益 + 有息负债 − 超额现金'
+  },
+  roe: {
+    title: '净资产收益率（ROE）',
+    desc: '公司利用股东权益创造利润的能力，巴菲特最常引用的指标之一。持续高ROE（>15%）是优质商业模式的体现，但需结合财务杠杆分析。',
+    formula: 'ROE = 净利润 ÷ 平均股东权益 × 100%\n杜邦分析：ROE = 净利润率 × 资产周转率 × 财务杠杆'
+  },
+  revenue_cagr: {
+    title: '营收复合年增长率（CAGR）',
+    desc: '过去若干年营收的年化增速，平滑单年波动。高增速公司通常享受更高估值溢价，但需判断增速的可持续性。',
+    formula: 'CAGR = (末期营收 ÷ 初期营收)^(1/年数) − 1'
+  },
+  eps_cagr: {
+    title: 'EPS复合年增长率',
+    desc: '每股盈利的年化增速，反映公司盈利扩张与股本稀释之间的净效果。EPS CAGR > 营收CAGR通常代表利润率在提升。',
+    formula: 'CAGR = (末期EPS ÷ 初期EPS)^(1/年数) − 1'
+  },
+  debt_ebitda: {
+    title: '债务/EBITDA',
+    desc: '衡量公司偿还全部债务所需的年数（以EBITDA衡量），是信用分析和财务风险的核心指标。通常 < 2.0 为健康，> 4.0 需警惕。',
+    formula: 'Debt/EBITDA = 总有息负债 ÷ EBITDA'
+  },
+  interest_coverage: {
+    title: '利息覆盖倍数',
+    desc: '公司用经营利润偿还利息费用的能力。倍数越高财务越安全；< 2.0 时债务违约风险显著上升。',
+    formula: '利息覆盖倍数 = EBIT ÷ 利息费用'
+  },
+  revenue_ttm: {
+    title: '过去12个月营收（TTM）',
+    desc: '滚动最近12个月的营业收入，单位百万美元。TTM消除季节性，反映公司当前真实收入规模。',
+    formula: 'TTM营收 = 最近四个季度营收之和'
+  },
+  fcf_ttm: {
+    title: '过去12个月自由现金流（TTM）',
+    desc: '滚动最近12个月的自由现金流，单位百万美元。FCF是公司在维持和扩张业务后剩余的真实现金，可用于回购、分红或再投资。',
+    formula: 'FCF = 经营活动现金流 − 资本性支出（CapEx）'
+  },
+  eps: {
+    title: '每股收益（EPS）',
+    desc: '每一股股票对应的净利润，是P/E估值的分母。EPS持续增长是股价长期上涨的根本驱动力。',
+    formula: 'EPS = 净利润 ÷ 加权平均流通股数'
+  }
+};
+
+// ─── TOOLTIP 逻辑 ──────────────────────────────────────────────────────────
+const tooltip  = document.getElementById('tooltip');
+const tipTitle = document.getElementById('tip-title');
+const tipDesc  = document.getElementById('tip-desc');
+const tipFormula = document.getElementById('tip-formula');
+let hideTimer = null;
+
+function showTip(e, key) {
+  const data = TIPS[key];
+  if (!data) return;
+  clearTimeout(hideTimer);
+  tipTitle.textContent = data.title;
+  tipDesc.textContent  = data.desc;
+  if (data.formula) {
+    tipFormula.textContent = '公式：' + data.formula;
+    tipFormula.style.display = 'block';
+  } else {
+    tipFormula.style.display = 'none';
+  }
+  tooltip.classList.add('visible');
+  positionTip(e);
+}
+
+function positionTip(e) {
+  const pad = 14;
+  const tw = tooltip.offsetWidth || 280;
+  const th = tooltip.offsetHeight || 120;
+  let x = e.clientX + pad;
+  let y = e.clientY + pad;
+  if (x + tw > window.innerWidth  - pad) x = e.clientX - tw - pad;
+  if (y + th > window.innerHeight - pad) y = e.clientY - th - pad;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top  = y + 'px';
+}
+
+function hideTip() {
+  hideTimer = setTimeout(() => tooltip.classList.remove('visible'), 120);
+}
+
+document.addEventListener('mousemove', e => {
+  if (tooltip.classList.contains('visible')) positionTip(e);
+});
+
+// 给带 data-tip 属性的元素统一绑定事件
+document.addEventListener('mouseover', e => {
+  const el = e.target.closest('[data-tip]');
+  if (el) showTip(e, el.dataset.tip);
+});
+document.addEventListener('mouseout', e => {
+  const el = e.target.closest('[data-tip]');
+  if (el) hideTip();
+});
+// 移动端 tap
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-tip]');
+  if (el) {
+    if (tooltip.classList.contains('visible')) {
+      tooltip.classList.remove('visible');
+    } else {
+      showTip(e, el.dataset.tip);
+    }
+  } else {
+    tooltip.classList.remove('visible');
+  }
+});
+
+// ─── MACRO & COLS 配置 ─────────────────────────────────────────────────────
 const MACRO_ORDER = [
-  'fed_funds_rate', '10y_treasury', '2y_treasury', '3m_treasury', // 利率/流动性定价锚
-  'cpi_yoy', 'core_cpi', 'unemployment', 'gdp_growth',           // 经济核心基本面
-  'vix', 'dxy', 'm2_money_supply'                               // 风险情绪与美元地位
+  'fed_funds_rate', '10y_treasury', '2y_treasury', '3m_treasury',
+  'cpi_yoy', 'core_cpi', 'unemployment', 'gdp_growth',
+  'vix', 'dxy', 'm2_money_supply'
 ];
 
 const MACRO_META = {
   fed_funds_rate: { label: 'FED FUNDS RATE', suffix: '%' },
-  '10y_treasury': { label: 'US 10Y YIELD', suffix: '%' },
-  '2y_treasury':  { label: 'US 2Y YIELD', suffix: '%' },
-  '3m_treasury':  { label: 'US 3M YIELD', suffix: '%' },
-  cpi_yoy:        { label: 'CPI YOY', suffix: '%' },
-  core_cpi:       { label: 'CORE CPI', suffix: '%' },
-  unemployment:   { label: 'UNEMPLOYMENT', suffix: '%' },
-  gdp_growth:     { label: 'GDP GROWTH', suffix: '%' },
-  vix:            { label: 'VIX INDEX', suffix: '' },
-  dxy:            { label: 'DOLLAR INDEX', suffix: '' },
-  m2_money_supply:{ label: 'M2 SUPPLY', suffix: 'B' }
+  '10y_treasury': { label: 'US 10Y YIELD',   suffix: '%' },
+  '2y_treasury':  { label: 'US 2Y YIELD',    suffix: '%' },
+  '3m_treasury':  { label: 'US 3M YIELD',    suffix: '%' },
+  cpi_yoy:        { label: 'CPI YOY',        suffix: '%' },
+  core_cpi:       { label: 'CORE CPI',       suffix: '%' },
+  unemployment:   { label: 'UNEMPLOYMENT',   suffix: '%' },
+  gdp_growth:     { label: 'GDP GROWTH',     suffix: '%' },
+  vix:            { label: 'VIX INDEX',      suffix: '' },
+  dxy:            { label: 'DOLLAR INDEX',   suffix: '' },
+  m2_money_supply:{ label: 'M2 SUPPLY',      suffix: 'B' }
 };
 
-// 2. 股票指标 23项完整保留
 const COLS = [
-  { key: 'ticker',           label: 'TICKER',     type: 'ticker' },
-  { key: 'name',             label: 'NAME',       type: 'name' },
-  { key: 'market_cap_b',     label: 'MCAP $B',    type: 'num' },
-  { key: 'price',            label: 'PRICE',      type: 'num' },
-  { key: 'change_pct',       label: 'CHG%',       type: 'change' },
-  { key: 'pe',               label: 'P/E',        type: 'hm', hm: 'pe' },
-  { key: 'ev_ebit',          label: 'EV/EBIT',    type: 'hm', hm: 'ev' },
-  { key: 'ev_ebitda',        label: 'EV/EBITDA',  type: 'hm', hm: 'ev' },
-  { key: 'fcf_yield',        label: 'FCF YLD',    type: 'hm', hm: 'yield' },
-  { key: 'ps_ratio',         label: 'P/S',        type: 'hm', hm: 'pe' },
-  { key: 'gross_margin',     label: 'GROSS%',     type: 'hm', hm: 'margin' },
-  { key: 'operating_margin', label: 'OP MGN%',    type: 'hm', hm: 'margin' },
-  { key: 'net_margin',       label: 'NET MGN%',   type: 'hm', hm: 'margin' },
-  { key: 'fcf_margin',       label: 'FCF MGN%',   type: 'hm', hm: 'margin' },
-  { key: 'roic',             label: 'ROIC%',      type: 'hm', hm: 'margin' },
-  { key: 'roe',              label: 'ROE%',       type: 'hm', hm: 'margin' },
-  { key: 'revenue_cagr',     label: 'REV CAGR',   type: 'hm', hm: 'cagr' },
-  { key: 'eps_cagr',         label: 'EPS CAGR',   type: 'hm', hm: 'cagr' },
-  { key: 'debt_ebitda',      label: 'DEBT/EBITDA',type: 'hm', hm: 'debt' },
-  { key: 'interest_coverage',label: 'INT COV',    type: 'hm', hm: 'int' },
-  { key: 'revenue_ttm',      label: 'REV $M',     type: 'num' },
-  { key: 'fcf_ttm',          label: 'FCF $M',     type: 'num' },
-  { key: 'eps',              label: 'EPS',        type: 'num' }
+  { key: 'ticker',           label: 'TICKER',      type: 'ticker' },
+  { key: 'name',             label: 'NAME',        type: 'name' },
+  { key: 'market_cap_b',     label: 'MCAP $B',     type: 'num' },
+  { key: 'price',            label: 'PRICE',       type: 'num' },
+  { key: 'change_pct',       label: 'CHG%',        type: 'change' },
+  { key: 'pe',               label: 'P/E',         type: 'hm', hm: 'pe' },
+  { key: 'ev_ebit',          label: 'EV/EBIT',     type: 'hm', hm: 'ev' },
+  { key: 'ev_ebitda',        label: 'EV/EBITDA',   type: 'hm', hm: 'ev' },
+  { key: 'fcf_yield',        label: 'FCF YLD',     type: 'hm', hm: 'yield' },
+  { key: 'ps_ratio',         label: 'P/S',         type: 'hm', hm: 'pe' },
+  { key: 'gross_margin',     label: 'GROSS%',      type: 'hm', hm: 'margin' },
+  { key: 'operating_margin', label: 'OP MGN%',     type: 'hm', hm: 'margin' },
+  { key: 'net_margin',       label: 'NET MGN%',    type: 'hm', hm: 'margin' },
+  { key: 'fcf_margin',       label: 'FCF MGN%',    type: 'hm', hm: 'margin' },
+  { key: 'roic',             label: 'ROIC%',       type: 'hm', hm: 'margin' },
+  { key: 'roe',              label: 'ROE%',        type: 'hm', hm: 'margin' },
+  { key: 'revenue_cagr',     label: 'REV CAGR',    type: 'hm', hm: 'cagr' },
+  { key: 'eps_cagr',         label: 'EPS CAGR',    type: 'hm', hm: 'cagr' },
+  { key: 'debt_ebitda',      label: 'DEBT/EBITDA', type: 'hm', hm: 'debt' },
+  { key: 'interest_coverage',label: 'INT COV',     type: 'hm', hm: 'int' },
+  { key: 'revenue_ttm',      label: 'REV $M',      type: 'num' },
+  { key: 'fcf_ttm',          label: 'FCF $M',      type: 'num' },
+  { key: 'eps',              label: 'EPS',         type: 'num' }
 ];
 
 const HM_RULES = {
-  pe: v => v < 15 ? 6 : v < 25 ? 4 : 2,
-  ev: v => v < 12 ? 6 : v < 18 ? 4 : 2,
-  yield: v => v > 7 ? 6 : v > 4 ? 4 : 2,
+  pe:     v => v < 15 ? 6 : v < 25 ? 4 : 2,
+  ev:     v => v < 12 ? 6 : v < 18 ? 4 : 2,
+  yield:  v => v > 7  ? 6 : v > 4  ? 4 : 2,
   margin: v => v > 35 ? 6 : v > 15 ? 4 : 2,
-  cagr: v => v > 15 ? 6 : v > 8 ? 4 : 2,
-  debt: v => v < 1.5 ? 6 : v < 3.5 ? 4 : 2,
-  int: v => v > 8 ? 6 : v > 3 ? 4 : 2
+  cagr:   v => v > 15 ? 6 : v > 8  ? 4 : 2,
+  debt:   v => v < 1.5? 6 : v < 3.5? 4 : 2,
+  int:    v => v > 8  ? 6 : v > 3  ? 4 : 2
 };
 
 let rawData = null;
@@ -222,7 +510,7 @@ function renderCell(col, s) {
   const v = s[col.key];
   if (v == null) return '<span style="color:#333">—</span>';
   if (col.type === 'ticker') return `<span class="td-ticker">${v}</span>`;
-  if (col.type === 'name') return `<span class="td-name">${v.slice(0,18)}</span>`;
+  if (col.type === 'name')   return `<span class="td-name">${v.slice(0,18)}</span>`;
   if (col.type === 'change') return `<span class="hm hm-${v > 0 ? 5 : 1}">${v > 0 ? '+' : ''}${v}%</span>`;
   if (col.type === 'hm') {
     const score = HM_RULES[col.hm] ? HM_RULES[col.hm](v) : 3;
@@ -264,21 +552,31 @@ async function init() {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('main-content').style.display = 'block';
 
-    if (rawData.meta?.generated_at) document.getElementById('last-updated').textContent = formatUpdateDate(rawData.meta.generated_at);
+    if (rawData.meta?.generated_at)
+      document.getElementById('last-updated').textContent = formatUpdateDate(rawData.meta.generated_at);
 
+    // ── 宏观指标渲染（label 加 data-tip）
     const mGrid = document.getElementById('macro-grid');
     MACRO_ORDER.forEach(key => {
-      const v = rawData.macro[key];
+      const v    = rawData.macro[key];
       const meta = MACRO_META[key];
-      if (v) mGrid.innerHTML += `
+      if (!v) return;
+      const hasTip = TIPS[key] ? 'class="has-tip" data-tip="' + key + '"' : '';
+      mGrid.innerHTML += `
         <div class="macro-card">
-          <div class="macro-label">${meta.label}</div>
+          <div class="macro-label"><span ${hasTip}>${meta.label}</span></div>
           <div class="macro-value">${v.value}${meta.suffix}</div>
           <div class="macro-change ${v.change > 0 ? 'neg' : 'pos'}">${v.change > 0 ? '+' : ''}${v.change}${meta.suffix}</div>
         </div>`;
     });
 
-    document.getElementById('table-head').innerHTML = `<tr>${COLS.map(c => `<th>${c.label}</th>`).join('')}</tr>`;
+    // ── 表头渲染（th 内容加 data-tip）
+    document.getElementById('table-head').innerHTML =
+      `<tr>${COLS.map(c => {
+        const hasTip = TIPS[c.key] ? ` class="has-tip" data-tip="${c.key}"` : '';
+        return `<th><span${hasTip}>${c.label}</span></th>`;
+      }).join('')}</tr>`;
+
     renderTable();
 
     document.getElementById('pin-input').addEventListener('keypress', (e) => {
@@ -287,7 +585,9 @@ async function init() {
         if (val) { pinnedTickers.add(val); e.target.value = ''; renderTable(); }
       }
     });
-  } catch (e) { document.getElementById('loading').textContent = 'FETCH ERROR'; }
+  } catch (e) {
+    document.getElementById('loading').textContent = 'FETCH ERROR';
+  }
 }
 init();
 </script>
