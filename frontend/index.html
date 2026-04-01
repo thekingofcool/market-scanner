@@ -130,37 +130,49 @@ td:first-child, td:nth-child(2) { text-align: left; }
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s ease;
-  max-width: 280px;
+  max-width: 340px;
 }
 #tooltip.visible { opacity: 1; }
+
+/* 移动端：固定居中显示 */
+@media (max-width: 600px) {
+  #tooltip {
+    max-width: calc(100vw - 40px);
+    width: calc(100vw - 40px);
+    left: 20px !important;
+    top: 50% !important;
+    transform: translateY(-50%);
+  }
+}
 
 .tooltip-inner {
   background: #1a1a1a;
   border: 1px solid #444;
-  padding: 12px 14px;
+  padding: 16px 18px;
   font-family: var(--font);
-  font-size: 8px;
-  line-height: 1.8;
+  font-size: 11px;
+  line-height: 2;
   color: var(--text);
   box-shadow: 0 4px 20px rgba(0,0,0,0.8);
 }
 .tooltip-title {
   color: var(--accent);
-  font-size: 9px;
-  margin-bottom: 8px;
+  font-size: 13px;
+  margin-bottom: 10px;
   letter-spacing: 0.1em;
 }
 .tooltip-desc {
   color: var(--text-mid);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 .tooltip-formula {
   color: #aaffaa;
   border-top: 1px solid #333;
-  padding-top: 6px;
-  margin-top: 6px;
-  font-size: 7px;
+  padding-top: 8px;
+  margin-top: 8px;
+  font-size: 10px;
   letter-spacing: 0.05em;
+  line-height: 1.9;
 }
 </style>
 </head>
@@ -414,31 +426,45 @@ function hideTip() {
   hideTimer = setTimeout(() => tooltip.classList.remove('visible'), 120);
 }
 
+const isTouchDevice = () => window.matchMedia('(hover: none)').matches;
+
 document.addEventListener('mousemove', e => {
-  if (tooltip.classList.contains('visible')) positionTip(e);
+  if (!isTouchDevice() && tooltip.classList.contains('visible')) positionTip(e);
 });
 
-// 给带 data-tip 属性的元素统一绑定事件
+// 桌面端：hover 触发
 document.addEventListener('mouseover', e => {
+  if (isTouchDevice()) return;
   const el = e.target.closest('[data-tip]');
   if (el) showTip(e, el.dataset.tip);
 });
 document.addEventListener('mouseout', e => {
+  if (isTouchDevice()) return;
   const el = e.target.closest('[data-tip]');
   if (el) hideTip();
 });
-// 移动端 tap
-document.addEventListener('click', e => {
+
+// 移动端：touchend 专用处理，避免 click 延迟和冒泡问题
+document.addEventListener('touchend', e => {
+  if (!isTouchDevice()) return;
   const el = e.target.closest('[data-tip]');
   if (el) {
-    if (tooltip.classList.contains('visible')) {
-      tooltip.classList.remove('visible');
+    e.preventDefault(); // 阻止后续 click 事件干扰
+    const key = el.dataset.tip;
+    if (tooltip.classList.contains('visible') && tipTitle.textContent === (TIPS[key]?.title || '')) {
+      tooltip.classList.remove('visible'); // 再次点击同一指标关闭
     } else {
-      showTip(e, el.dataset.tip);
+      showTip(e.changedTouches[0], key); // 用 touch 坐标（CSS会覆盖位置为居中）
     }
   } else {
     tooltip.classList.remove('visible');
   }
+}, { passive: false });
+
+// 桌面端点击空白处关闭
+document.addEventListener('click', e => {
+  if (isTouchDevice()) return;
+  if (!e.target.closest('[data-tip]')) tooltip.classList.remove('visible');
 });
 
 // ─── MACRO & COLS 配置 ─────────────────────────────────────────────────────
